@@ -2,6 +2,8 @@ package com.polleg.gallery.gallery.application
 
 import com.polleg.gallery.gallery.domain.FolderId
 import com.polleg.gallery.gallery.domain.MediaItem
+import com.polleg.gallery.gallery.domain.MediaMovePolicy
+import kotlinx.coroutines.CancellationException
 
 data class TogglePinnedFolderCommand(
     val folderId: FolderId,
@@ -78,6 +80,7 @@ data class MoveMediaCommand(
 data class MoveMediaResult(
     val movedCount: Int,
     val failedCount: Int,
+    val failureDetails: List<String> = emptyList(),
 )
 
 class InvalidMoveException(message: String) : IllegalArgumentException(message)
@@ -89,26 +92,42 @@ class MoveMediaHandler(
         if (command.destination.relativePath.isBlank()) {
             throw InvalidMoveException("La racine du stockage ne peut pas être une destination.")
         }
-        if (command.media.any { it.volumeName != command.destination.volumeName }) {
+        if (!MediaMovePolicy.canMoveTo(command.media, command.destination)) {
             throw InvalidMoveException(
-                "Tous les médias et la destination doivent être sur le même volume.",
+                "Ce dossier n’accepte pas tous les types de médias sélectionnés.",
             )
         }
 
         var moved = 0
-        command.media.distinctBy(MediaItem::contentUri).forEach { media ->
+        val failures = mutableListOf<String>()
+        val uniqueMedia = command.media.distinctBy(MediaItem::contentUri)
+        uniqueMedia.forEach { media ->
             val succeeded = try {
-                repository.move(media.contentUri, command.destination.relativePath)
+                repository.move(media, command.destination)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (security: SecurityException) {
                 throw security
-            } catch (_: Throwable) {
+            } catch (error: Throwable) {
+                failures += buildString {
+                    append(media.displayName)
+                    append(" : ")
+                    append(
+                        error.message
+                            ?.trim()
+                            ?.takeIf(String::isNotEmpty)
+                            ?.take(180)
+                            ?: "erreur MediaStore inconnue",
+                    )
+                }
                 false
             }
             if (succeeded) moved += 1
         }
         return MoveMediaResult(
             movedCount = moved,
-            failedCount = command.media.distinctBy(MediaItem::contentUri).size - moved,
+            failedCount = uniqueMedia.size - moved,
+            failureDetails = failures,
         )
     }
 }
