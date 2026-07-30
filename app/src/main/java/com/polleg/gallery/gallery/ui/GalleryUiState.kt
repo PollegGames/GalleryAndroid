@@ -30,6 +30,8 @@ sealed interface GalleryUiState {
         val isFolderTreeLoading: Boolean,
         val isLimitedAccess: Boolean,
         val scrollPosition: ScrollPosition,
+        val selectedMediaUris: Set<String> = emptySet(),
+        val isMovePickerVisible: Boolean = false,
     ) : GalleryUiState
 
     data class Failure(
@@ -47,6 +49,16 @@ sealed interface GalleryAction {
     data object NavigationToggled : GalleryAction
     data object BackPressed : GalleryAction
     data class MediaSelected(val mediaItem: MediaItem) : GalleryAction
+    data class MediaLongPressed(val mediaItem: MediaItem) : GalleryAction
+    data object SelectionClosed : GalleryAction
+    data object DeleteSelected : GalleryAction
+    data object MoveSelected : GalleryAction
+    data object MovePickerDismissed : GalleryAction
+    data class MoveDestinationSelected(val destination: FolderId) : GalleryAction
+    data class MutationFinished(
+        val succeeded: Boolean,
+        val message: String? = null,
+    ) : GalleryAction
     data object RefreshRequested : GalleryAction
     data class ScrollPositionChanged(
         val itemIndex: Int,
@@ -62,6 +74,12 @@ sealed interface GalleryAction {
 sealed interface GalleryEffect {
     data object RequestMediaPermission : GalleryEffect
     data class OpenMedia(val mediaItem: MediaItem) : GalleryEffect
+    data class RequestDelete(val media: List<MediaItem>) : GalleryEffect
+    data class RequestMove(
+        val media: List<MediaItem>,
+        val destination: FolderId,
+    ) : GalleryEffect
     data object ShowOpenFailed : GalleryEffect
+    data class ShowMessage(val message: String) : GalleryEffect
     data class ShowError(val detail: String?) : GalleryEffect
 }

@@ -2,7 +2,9 @@ package com.polleg.gallery.gallery.ui
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,7 +25,9 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -32,9 +37,13 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
@@ -46,6 +55,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.FilledTonalButton
@@ -56,15 +66,18 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -201,24 +214,64 @@ private fun ReadyGallery(
             .windowInsetsPadding(WindowInsets.statusBars)
             .windowInsetsPadding(WindowInsets.navigationBars),
     ) {
-        val expandedWidth = if (maxWidth < 500.dp) 148.dp else 220.dp
-        val navigationWidth by animateDpAsState(
-            targetValue = if (state.navigationCollapsed) 62.dp else expandedWidth,
-            label = "navigationWidth",
-        )
-
-        Row(Modifier.fillMaxSize()) {
-            GalleryNavigation(
-                state = state,
-                width = navigationWidth,
-                onAction = onAction,
-            )
-            VerticalDivider(Modifier.fillMaxHeight())
-            GalleryContent(
-                state = state,
-                onAction = onAction,
-                modifier = Modifier.weight(1f),
-            )
+        val compact = maxWidth < 600.dp
+        val availableWidth = maxWidth
+        if (!compact) {
+            Row(Modifier.fillMaxSize()) {
+                GalleryNavigation(
+                    state = state,
+                    width = 320.dp,
+                    collapsed = false,
+                    allowCollapse = false,
+                    onAction = onAction,
+                )
+                VerticalDivider(Modifier.fillMaxHeight())
+                GalleryContent(
+                    state = state,
+                    onAction = onAction,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else if (state.navigationCollapsed) {
+            Row(Modifier.fillMaxSize()) {
+                GalleryNavigation(
+                    state = state,
+                    width = 62.dp,
+                    collapsed = true,
+                    allowCollapse = true,
+                    onAction = onAction,
+                )
+                VerticalDivider(Modifier.fillMaxHeight())
+                GalleryContent(
+                    state = state,
+                    onAction = onAction,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
+            Box(Modifier.fillMaxSize()) {
+                GalleryContent(
+                    state = state,
+                    onAction = onAction,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.28f))
+                        .clickable { onAction(GalleryAction.NavigationToggled) },
+                )
+                GalleryNavigation(
+                    state = state,
+                    width = availableWidth * 0.96f,
+                    collapsed = false,
+                    allowCollapse = true,
+                    onAction = onAction,
+                )
+            }
+        }
+        if (state.isMovePickerVisible) {
+            MoveDestinationDialog(state, onAction)
         }
     }
 }
@@ -227,6 +280,8 @@ private fun ReadyGallery(
 private fun GalleryNavigation(
     state: GalleryUiState.Ready,
     width: Dp,
+    collapsed: Boolean,
+    allowCollapse: Boolean,
     onAction: (GalleryAction) -> Unit,
 ) {
     val folderRows = remember(state.folderRoots, state.expandedFolderKeys) {
@@ -257,6 +312,7 @@ private fun GalleryNavigation(
     val monograms = remember(collapsedRows) {
         FolderMonogram.assign(listOf("Récents") + collapsedRows.map(NavigationFolder::label))
     }
+    val expandedListState = rememberLazyListState()
 
     Surface(
         modifier = Modifier
@@ -264,7 +320,7 @@ private fun GalleryNavigation(
             .fillMaxHeight(),
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
-        if (state.navigationCollapsed) {
+        if (collapsed) {
             CollapsedNavigation(
                 state = state,
                 rows = collapsedRows,
@@ -276,6 +332,8 @@ private fun GalleryNavigation(
                 state = state,
                 pinnedRows = pinnedRows,
                 folderRows = folderRows,
+                allowCollapse = allowCollapse,
+                listState = expandedListState,
                 onAction = onAction,
             )
         }
@@ -333,12 +391,16 @@ private fun ExpandedNavigation(
     state: GalleryUiState.Ready,
     pinnedRows: List<NavigationFolder>,
     folderRows: List<FolderRow>,
+    allowCollapse: Boolean,
+    listState: LazyListState,
     onAction: (GalleryAction) -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxHeight(),
-        contentPadding = PaddingValues(bottom = 12.dp),
-    ) {
+    Box(Modifier.fillMaxHeight()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxHeight(),
+            contentPadding = PaddingValues(bottom = 12.dp),
+        ) {
         item(key = "header") {
             Row(
                 modifier = Modifier
@@ -353,11 +415,13 @@ private fun ExpandedNavigation(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
-                IconButton(onClick = { onAction(GalleryAction.NavigationToggled) }) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = stringResource(R.string.collapse_navigation),
-                    )
+                if (allowCollapse) {
+                    IconButton(onClick = { onAction(GalleryAction.NavigationToggled) }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = stringResource(R.string.collapse_navigation),
+                        )
+                    }
                 }
             }
         }
@@ -449,6 +513,51 @@ private fun ExpandedNavigation(
                     Icon(Icons.Default.SdStorage, contentDescription = null)
                 },
                 onClick = {},
+            )
+        }
+        }
+        NavigationScrollIndicator(
+            state = listState,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(vertical = 8.dp, horizontal = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun NavigationScrollIndicator(
+    state: LazyListState,
+    modifier: Modifier = Modifier,
+) {
+    val metrics by remember(state) {
+        derivedStateOf {
+            val total = state.layoutInfo.totalItemsCount
+            val visible = state.layoutInfo.visibleItemsInfo.size
+            val fraction = if (total <= visible || total == 0) 0f else {
+                visible.toFloat() / total
+            }
+            val progress = if (total <= visible || total == 0) 0f else {
+                state.firstVisibleItemIndex.toFloat() / (total - visible).coerceAtLeast(1)
+            }
+            fraction to progress
+        }
+    }
+    if (metrics.first > 0f) {
+        Canvas(
+            modifier = modifier
+                .width(3.dp)
+                .fillMaxHeight(),
+        ) {
+            val thumbHeight = size.height * metrics.first.coerceIn(0.08f, 1f)
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.28f),
+                topLeft = androidx.compose.ui.geometry.Offset(
+                    0f,
+                    (size.height - thumbHeight) * metrics.second.coerceIn(0f, 1f),
+                ),
+                size = androidx.compose.ui.geometry.Size(size.width, thumbHeight),
+                cornerRadius = CornerRadius(size.width),
             )
         }
     }
@@ -556,8 +665,8 @@ private fun NavigationRow(
             .clip(RoundedCornerShape(10.dp))
             .background(background)
             .clickable(enabled = enabled, onClick = onClick)
-            .height(46.dp)
-            .padding(start = (4 + depth * 10).dp, end = 2.dp),
+            .heightIn(min = 48.dp)
+            .padding(start = (4 + depth.coerceAtMost(4) * 10).dp, end = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
@@ -568,9 +677,9 @@ private fun NavigationRow(
         Text(
             text = label,
             modifier = Modifier.weight(1f),
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = if (enabled) {
                 MaterialTheme.colorScheme.onSurface
             } else {
@@ -687,7 +796,9 @@ private fun GalleryContent(
             ) { media ->
                 MediaTile(
                     media = media,
+                    selected = media.contentUri in state.selectedMediaUris,
                     onClick = { onAction(GalleryAction.MediaSelected(media)) },
+                    onLongClick = { onAction(GalleryAction.MediaLongPressed(media)) },
                 )
             }
 
@@ -740,6 +851,48 @@ private fun GalleryToolbar(
         state.media.size,
     )
 
+    if (state.selectedMediaUris.isNotEmpty()) {
+        val selected = state.media.filter { it.contentUri in state.selectedMediaUris }
+        val canMove = selected.map(MediaItem::volumeName).distinct().size == 1
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp)
+                .background(MaterialTheme.colorScheme.secondaryContainer)
+                .padding(horizontal = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = { onAction(GalleryAction.SelectionClosed) }) {
+                Icon(Icons.Default.Close, stringResource(R.string.close_selection))
+            }
+            Text(
+                text = state.selectedMediaUris.size.toString(),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            if (!canMove) {
+                Text(
+                    text = stringResource(R.string.move_different_volumes),
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    maxLines = 2,
+                )
+            }
+            IconButton(
+                onClick = { onAction(GalleryAction.MoveSelected) },
+                enabled = canMove,
+            ) {
+                Icon(Icons.AutoMirrored.Filled.DriveFileMove, stringResource(R.string.move))
+            }
+            IconButton(onClick = { onAction(GalleryAction.DeleteSelected) }) {
+                Icon(Icons.Default.Delete, stringResource(R.string.delete))
+            }
+        }
+        return
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -788,7 +941,9 @@ private fun GalleryToolbar(
 @Composable
 private fun MediaTile(
     media: MediaItem,
+    selected: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
 ) {
     val context = LocalContext.current
     val description = stringResource(
@@ -805,7 +960,7 @@ private fun MediaTile(
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         AsyncImage(
             model = ImageRequest.Builder(context)
@@ -818,6 +973,23 @@ private fun MediaTile(
                 .height(116.dp),
             contentScale = ContentScale.Crop,
         )
+
+        if (selected) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.34f)),
+            )
+            Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = stringResource(R.string.selected_media),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(7.dp)
+                    .size(25.dp),
+                tint = MaterialTheme.colorScheme.primaryContainer,
+            )
+        }
 
         if (media.kind == MediaKind.Video) {
             Row(
@@ -845,6 +1017,65 @@ private fun MediaTile(
             }
         }
     }
+}
+
+@Composable
+private fun MoveDestinationDialog(
+    state: GalleryUiState.Ready,
+    onAction: (GalleryAction) -> Unit,
+) {
+    val selectedVolume = state.media
+        .firstOrNull { it.contentUri in state.selectedMediaUris }
+        ?.volumeName
+    val currentFolder = (state.location as? GalleryLocation.Folder)?.id
+    val destinations = remember(state.folderRoots, selectedVolume, currentFolder) {
+        state.folderRoots
+            .flatMap(::allFolders)
+            .filter { folder ->
+                folder.id.volumeName == selectedVolume &&
+                    !folder.isStorageRoot &&
+                    folder.id.relativePath.isNotBlank() &&
+                    folder.id != currentFolder
+            }
+            .distinctBy { it.id }
+            .sortedBy { it.id.relativePath.lowercase() }
+    }
+
+    AlertDialog(
+        onDismissRequest = { onAction(GalleryAction.MovePickerDismissed) },
+        title = { Text(stringResource(R.string.choose_destination)) },
+        text = {
+            if (destinations.isEmpty()) {
+                Text(stringResource(R.string.no_move_destination))
+            } else {
+                LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                    items(destinations, key = { it.id.stableKey }) { folder ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onAction(GalleryAction.MoveDestinationSelected(folder.id))
+                                }
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Default.Folder, contentDescription = null)
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = folder.id.relativePath.trimEnd('/'),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onAction(GalleryAction.MovePickerDismissed) }) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
 }
 
 @Composable
@@ -925,6 +1156,9 @@ private fun visibleFolderRows(
     }
     roots.forEach { append(it, 0) }
 }
+
+private fun allFolders(root: MediaFolder): List<MediaFolder> =
+    listOf(root) + root.children.flatMap(::allFolders)
 
 private fun FolderId.fallbackLabel(): String =
     relativePath

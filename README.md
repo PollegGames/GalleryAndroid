@@ -18,9 +18,29 @@ vidéos de MediaStore, sur le téléphone comme sur les cartes SD.
 - actualisation au retour dans l’application et observation de MediaStore/du
   montage des volumes uniquement quand l’écran est actif ;
 - accès complet ou limité aux photos et vidéos sur les versions Android récentes.
+- navigation latérale adaptative, superposée sur téléphone et permanente sur tablette ;
+- sélection multiple des médias par appui long ;
+- suppression avec confirmation Android ;
+- déplacement sans copie vers un dossier du même volume MediaStore.
 
 L’application n’utilise ni `MANAGE_EXTERNAL_STORAGE`, ni chemin physique, ni base
 Room, ni service en arrière-plan.
+
+## Installer l’APK
+
+Télécharger la dernière version depuis la page
+[`Releases`](https://github.com/PollegGames/GalleryAndroid/releases/latest).
+
+La démo 1.0.0 ayant été signée avec une autre clé Android de développement, elle
+doit être désinstallée avant d’installer la 1.1.0 :
+
+```bash
+adb uninstall com.polleg.gallery
+adb install Galerie-1.1.0.apk
+```
+
+L’APK fourni convient aux tests et à une installation manuelle, mais pas à une
+publication sur Google Play.
 
 ## Ouvrir et compiler le projet
 
@@ -88,6 +108,9 @@ Les tests unitaires couvrent notamment :
 - l’arbre récursif et les comptes cumulés ;
 - les monogrammes ;
 - la sérialisation des emplacements restaurés.
+- la sélection multiple et la priorité du bouton Retour ;
+- le cycle de suppression confirmé et l’actualisation ;
+- le déplacement sur le même volume, le rejet inter-volume et les résultats partiels.
 
 Commandes de validation du projet :
 
