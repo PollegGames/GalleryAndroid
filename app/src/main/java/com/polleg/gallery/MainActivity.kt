@@ -80,6 +80,7 @@ class MainActivity : ComponentActivity() {
                     successPlural = R.plurals.move_success_count,
                     successCount = outcome.result.movedCount,
                     failureCount = outcome.result.failedCount,
+                    failureDetail = outcome.result.failureDetails.firstOrNull(),
                 ),
             )
             MediaMutationOutcome.Cancelled -> GalleryAction.MutationFinished(
@@ -98,6 +99,7 @@ class MainActivity : ComponentActivity() {
         successPlural: Int,
         successCount: Int,
         failureCount: Int,
+        failureDetail: String? = null,
     ): String = buildString {
         append(resources.getQuantityString(successPlural, successCount, successCount))
         append(" · ")
@@ -108,5 +110,9 @@ class MainActivity : ComponentActivity() {
                 failureCount,
             ),
         )
+        failureDetail?.let {
+            append("\n")
+            append(it)
+        }
     }
 }

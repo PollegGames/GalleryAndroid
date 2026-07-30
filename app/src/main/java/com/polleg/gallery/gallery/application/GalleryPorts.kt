@@ -4,6 +4,8 @@ import com.polleg.gallery.gallery.domain.FolderPathRecord
 import com.polleg.gallery.gallery.domain.GalleryEvent
 import com.polleg.gallery.gallery.domain.GalleryLocation
 import com.polleg.gallery.gallery.domain.GalleryPreferences
+import com.polleg.gallery.gallery.domain.FolderId
+import com.polleg.gallery.gallery.domain.MediaItem
 import com.polleg.gallery.gallery.domain.MediaPage
 import com.polleg.gallery.gallery.domain.StorageVolume
 import kotlinx.coroutines.flow.Flow
@@ -14,13 +16,10 @@ interface MediaRepository {
     suspend fun getStorageVolumes(knownVolumeNames: Set<String> = emptySet()): List<StorageVolume>
 }
 
-/**
- * Mutates existing MediaStore rows only. Deliberately exposes no stream or insert API,
- * which keeps move operations as RELATIVE_PATH updates and makes copying impossible.
- */
+/** Exposes management operations only; there is deliberately no user-facing copy operation. */
 interface MediaMutationRepository {
     suspend fun delete(contentUri: String): Boolean
-    suspend fun move(contentUri: String, destinationRelativePath: String): Boolean
+    suspend fun move(media: MediaItem, destination: FolderId): Boolean
 }
 
 interface GalleryPreferencesRepository {

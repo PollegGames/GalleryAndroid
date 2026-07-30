@@ -30,10 +30,17 @@
     <string name="close_selection">Fermer la sélection</string>
     <string name="selected_media">Média sélectionné</string>
     <string name="move">Déplacer</string>
-    <string name="move_different_volumes">Stockages différents</string>
     <string name="delete">Supprimer</string>
-    <string name="choose_destination">Choisir un dossier de destination</string>
-    <string name="no_move_destination">Aucun autre dossier n’est disponible sur ce stockage.</string>
+    <string name="storage_locations">Choisir le stockage</string>
+    <plurals name="selected_count">
+        <item quantity="one">%1$d média sélectionné</item>
+        <item quantity="other">%1$d médias sélectionnés</item>
+    </plurals>
+    <string name="move_here">Déplacer ici</string>
+    <string name="back">Retour</string>
+    <string name="storage_unavailable">Stockage indisponible</string>
+    <string name="no_compatible_folder">Aucun dossier compatible</string>
+    <string name="no_move_destination">Aucun sous-dossier compatible n’est disponible ici.</string>
     <string name="cancel">Annuler</string>
     <string name="operation_cancelled">Opération annulée.</string>
     <string name="mutation_failed">L’opération n’a pas pu être effectuée.</string>
