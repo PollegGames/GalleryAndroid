@@ -20,12 +20,14 @@ import com.polleg.gallery.gallery.application.SetNavigationCollapsedHandler
 import com.polleg.gallery.gallery.application.TogglePinnedFolderCommand
 import com.polleg.gallery.gallery.application.TogglePinnedFolderHandler
 import com.polleg.gallery.gallery.application.GalleryChangeSource
+import com.polleg.gallery.gallery.application.MaxMediaMutationSize
 import com.polleg.gallery.gallery.domain.FolderId
 import com.polleg.gallery.gallery.domain.GalleryEvent
 import com.polleg.gallery.gallery.domain.GalleryLocation
 import com.polleg.gallery.gallery.domain.GalleryLocationCodec
 import com.polleg.gallery.gallery.domain.GalleryPreferences
 import com.polleg.gallery.gallery.domain.MediaPage
+import com.polleg.gallery.gallery.domain.MediaItem
 import com.polleg.gallery.gallery.domain.ScrollPosition
 import com.polleg.gallery.gallery.platform.MediaPermissionStatus
 import kotlinx.coroutines.CancellationException
@@ -92,8 +94,14 @@ class GalleryViewModel(
             GalleryAction.LoadMoreRequested -> loadMore()
             GalleryAction.NavigationToggled -> toggleNavigation()
             GalleryAction.BackPressed -> navigateBack()
-            is GalleryAction.MediaSelected ->
-                effectChannel.trySend(GalleryEffect.OpenMedia(action.mediaItem))
+            is GalleryAction.MediaSelected -> onMediaSelected(action.mediaItem)
+            is GalleryAction.MediaLongPressed -> onMediaLongPressed(action.mediaItem)
+            GalleryAction.SelectionClosed -> clearSelection()
+            GalleryAction.DeleteSelected -> requestDelete()
+            GalleryAction.MoveSelected -> showMovePicker()
+            GalleryAction.MovePickerDismissed -> dismissMovePicker()
+            is GalleryAction.MoveDestinationSelected -> requestMove(action.destination)
+            is GalleryAction.MutationFinished -> onMutationFinished(action)
 
             GalleryAction.RefreshRequested -> loadGallery(
                 showStarting = false,
@@ -132,7 +140,10 @@ class GalleryViewModel(
 
     private fun selectLocation(location: GalleryLocation) {
         val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
-        if (location == ready.location) return
+        if (location == ready.location) {
+            collapseNavigationAfterSelection()
+            return
+        }
 
         val history = (ready.history + ready.location).takeLast(MaxHistoryEntries)
         currentScrollPosition = ScrollPosition(
@@ -149,12 +160,22 @@ class GalleryViewModel(
             hasMore = false,
             isRefreshing = true,
             scrollPosition = currentScrollPosition,
+            selectedMediaUris = emptySet(),
+            isMovePickerVisible = false,
         )
+        collapseNavigationAfterSelection()
         loadGallery(showStarting = false, preserveScroll = false, rebuildFolders = false)
     }
 
     private fun navigateBack() {
         val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
+        if (ready.selectedMediaUris.isNotEmpty()) {
+            mutableUiState.value = ready.copy(
+                selectedMediaUris = emptySet(),
+                isMovePickerVisible = false,
+            )
+            return
+        }
         val previous = ready.history.lastOrNull() ?: return
         val remainingHistory = ready.history.dropLast(1)
 
@@ -173,6 +194,109 @@ class GalleryViewModel(
             scrollPosition = currentScrollPosition,
         )
         loadGallery(showStarting = false, preserveScroll = false, rebuildFolders = false)
+    }
+
+    private fun onMediaSelected(mediaItem: com.polleg.gallery.gallery.domain.MediaItem) {
+        val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
+        if (
+            mediaItem.contentUri !in ready.selectedMediaUris &&
+            ready.selectedMediaUris.size >= MaxMediaMutationSize
+        ) {
+            effectChannel.trySend(
+                GalleryEffect.ShowMessage("La sélection est limitée à $MaxMediaMutationSize médias."),
+            )
+            return
+        }
+        val result = GallerySelection.onClick(ready.selectedMediaUris, mediaItem.contentUri)
+        if (result.openMedia) {
+            effectChannel.trySend(GalleryEffect.OpenMedia(mediaItem))
+        } else {
+            mutableUiState.value = ready.copy(selectedMediaUris = result.selectedUris)
+        }
+    }
+
+    private fun onMediaLongPressed(mediaItem: com.polleg.gallery.gallery.domain.MediaItem) {
+        val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
+        if (
+            mediaItem.contentUri !in ready.selectedMediaUris &&
+            ready.selectedMediaUris.size >= MaxMediaMutationSize
+        ) {
+            effectChannel.trySend(
+                GalleryEffect.ShowMessage("La sélection est limitée à $MaxMediaMutationSize médias."),
+            )
+            return
+        }
+        mutableUiState.value = ready.copy(
+            selectedMediaUris = GallerySelection.onLongClick(
+                ready.selectedMediaUris,
+                mediaItem.contentUri,
+            ),
+        )
+    }
+
+    private fun clearSelection() {
+        val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
+        mutableUiState.value = ready.copy(
+            selectedMediaUris = emptySet(),
+            isMovePickerVisible = false,
+        )
+    }
+
+    private fun requestDelete() {
+        val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
+        val selected = ready.media.filter { it.contentUri in ready.selectedMediaUris }
+        if (selected.isNotEmpty()) effectChannel.trySend(GalleryEffect.RequestDelete(selected))
+    }
+
+    private fun showMovePicker() {
+        val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
+        val selected = ready.media.filter { it.contentUri in ready.selectedMediaUris }
+        if (selected.map(MediaItem::volumeName).distinct().size != 1) {
+            effectChannel.trySend(
+                GalleryEffect.ShowMessage(
+                    "Le déplacement exige des médias situés sur le même stockage.",
+                ),
+            )
+            return
+        }
+        mutableUiState.value = ready.copy(isMovePickerVisible = true)
+    }
+
+    private fun dismissMovePicker() {
+        val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
+        mutableUiState.value = ready.copy(isMovePickerVisible = false)
+    }
+
+    private fun requestMove(destination: FolderId) {
+        val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
+        val selected = ready.media.filter { it.contentUri in ready.selectedMediaUris }
+        mutableUiState.value = ready.copy(isMovePickerVisible = false)
+        if (selected.isNotEmpty()) {
+            effectChannel.trySend(GalleryEffect.RequestMove(selected, destination))
+        }
+    }
+
+    private fun onMutationFinished(action: GalleryAction.MutationFinished) {
+        val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
+        action.message?.let { effectChannel.trySend(GalleryEffect.ShowMessage(it)) }
+        if (!action.succeeded) return
+        mutableUiState.value = ready.copy(
+            selectedMediaUris = emptySet(),
+            isMovePickerVisible = false,
+        )
+        loadGallery(showStarting = false, preserveScroll = true, rebuildFolders = true)
+    }
+
+    private fun collapseNavigationAfterSelection() {
+        val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
+        if (ready.navigationCollapsed) return
+        preferences = preferences.copy(navigationCollapsed = true)
+        mutableUiState.value = ready.copy(navigationCollapsed = true)
+        viewModelScope.launch {
+            runCatching {
+                setNavigationCollapsed.handle(SetNavigationCollapsedCommand(true))
+            }.onFailure(::reportNonFatalFailure)
+        }
     }
 
     private fun loadMore() {
@@ -300,6 +424,9 @@ class GalleryViewModel(
                     isFolderTreeLoading = previousReady?.folderRoots.isNullOrEmpty(),
                     isLimitedAccess = permissionStatus.isLimited,
                     scrollPosition = scrollPosition,
+                    selectedMediaUris = previousReady?.selectedMediaUris.orEmpty()
+                        .intersect(result.first.items.mapTo(mutableSetOf(), MediaItem::contentUri)),
+                    isMovePickerVisible = previousReady?.isMovePickerVisible == true,
                 )
 
                 if (rebuildFolders || previousReady?.folderRoots.isNullOrEmpty()) {

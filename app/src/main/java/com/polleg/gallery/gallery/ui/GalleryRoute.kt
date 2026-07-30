@@ -18,12 +18,16 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.polleg.gallery.R
+import com.polleg.gallery.gallery.domain.FolderId
+import com.polleg.gallery.gallery.domain.MediaItem
 
 @Composable
 fun GalleryRoute(
     viewModel: GalleryViewModel,
     onRequestPermissions: () -> Unit,
-    onOpenMedia: (com.polleg.gallery.gallery.domain.MediaItem) -> Boolean,
+    onOpenMedia: (MediaItem) -> Boolean,
+    onDeleteMedia: (List<MediaItem>) -> Unit,
+    onMoveMedia: (List<MediaItem>, FolderId) -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -40,6 +44,10 @@ fun GalleryRoute(
                         viewModel.onAction(GalleryAction.MediaOpenFailed)
                     }
                 }
+                is GalleryEffect.RequestDelete -> onDeleteMedia(effect.media)
+                is GalleryEffect.RequestMove -> onMoveMedia(effect.media, effect.destination)
+                is GalleryEffect.ShowMessage ->
+                    snackbarHostState.showSnackbar(effect.message)
 
                 GalleryEffect.ShowOpenFailed ->
                     snackbarHostState.showSnackbar(openFailedMessage)
@@ -78,7 +86,10 @@ fun GalleryRoute(
     }
 
     val ready = state as? GalleryUiState.Ready
-    BackHandler(enabled = ready?.history?.isNotEmpty() == true) {
+    BackHandler(
+        enabled = ready?.selectedMediaUris?.isNotEmpty() == true ||
+            ready?.history?.isNotEmpty() == true,
+    ) {
         viewModel.onAction(GalleryAction.BackPressed)
     }
 

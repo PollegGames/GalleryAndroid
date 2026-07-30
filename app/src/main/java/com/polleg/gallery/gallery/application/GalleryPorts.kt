@@ -14,6 +14,15 @@ interface MediaRepository {
     suspend fun getStorageVolumes(knownVolumeNames: Set<String> = emptySet()): List<StorageVolume>
 }
 
+/**
+ * Mutates existing MediaStore rows only. Deliberately exposes no stream or insert API,
+ * which keeps move operations as RELATIVE_PATH updates and makes copying impossible.
+ */
+interface MediaMutationRepository {
+    suspend fun delete(contentUri: String): Boolean
+    suspend fun move(contentUri: String, destinationRelativePath: String): Boolean
+}
+
 interface GalleryPreferencesRepository {
     val preferences: Flow<GalleryPreferences>
 
