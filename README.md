@@ -22,6 +22,18 @@ vidéos de MediaStore, sur le téléphone comme sur les cartes SD.
 L’application n’utilise ni `MANAGE_EXTERNAL_STORAGE`, ni chemin physique, ni base
 Room, ni service en arrière-plan.
 
+## Installer l’APK de démonstration
+
+Télécharger [`Galerie-1.0.0-demo.apk`](Galerie-1.0.0-demo.apk), puis l’installer
+avec ADB :
+
+```bash
+adb install -r Galerie-1.0.0-demo.apk
+```
+
+Cet APK `release` est signé avec une clé Android de développement. Il convient aux
+tests et à une installation manuelle, mais pas à une publication sur Google Play.
+
 ## Ouvrir et compiler le projet
 
 Pré-requis :
