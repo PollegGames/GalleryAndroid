@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Galerie</string>
+    <string name="recent">Récents</string>
+    <string name="pinned">Épinglés</string>
+    <string name="folders">Dossiers</string>
+    <string name="sd_card_unavailable">Carte SD indisponible</string>
+    <string name="load_more">Charger 50 de plus</string>
+    <string name="grant_access">Autoriser l’accès</string>
+    <string name="permission_title">Accès aux photos et vidéos</string>
+    <string name="permission_explanation">L’application a besoin de lire les photos et vidéos du téléphone et de la carte SD pour afficher la galerie.</string>
+    <string name="permission_limited">L’accès est limité aux médias sélectionnés.</string>
+    <string name="empty_gallery">Aucun média dans cet emplacement.</string>
+    <string name="retry">Réessayer</string>
+    <string name="refresh">Actualiser</string>
+    <string name="collapse_navigation">Réduire le bandeau</string>
+    <string name="expand_navigation">Ouvrir le bandeau</string>
+    <string name="pin_folder">Épingler le dossier</string>
+    <string name="unpin_folder">Désépingler le dossier</string>
+    <string name="expand_folder">Déplier %1$s</string>
+    <string name="collapse_folder">Replier %1$s</string>
+    <plurals name="media_count">
+        <item quantity="one">%1$d élément</item>
+        <item quantity="other">%1$d éléments</item>
+    </plurals>
+    <string name="image_description">Image %1$s</string>
+    <string name="video_description">Vidéo %1$s</string>
+    <string name="open_failed">Aucune application ne peut ouvrir ce média.</string>
+    <string name="generic_error">Impossible de charger la galerie.</string>
+</resources>
