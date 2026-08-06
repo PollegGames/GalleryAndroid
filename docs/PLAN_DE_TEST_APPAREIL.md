@@ -66,3 +66,20 @@ physique d’une carte SD.
 4. Accorder ensuite l’accès complet dans les réglages Android et revenir dans
    l’application.
 5. Vérifier la disparition de l’avertissement et l’actualisation de la galerie.
+
+## 8. Déplacement et absence de doublon
+
+1. Sélectionner deux images dans `WhatsApp Images` avec un appui long.
+2. Toucher « Déplacer » et vérifier que le sélecteur affiche d’abord les racines
+   « Téléphone » et « Carte SD » au lieu d’une liste de chemins complets.
+3. Ouvrir « Téléphone », puis `DCIM` ou `Pictures`, et toucher « Déplacer ici ».
+4. Autoriser la modification dans la boîte de dialogue Android.
+5. Vérifier que les deux images ont disparu de `WhatsApp Images`, qu’elles sont
+   présentes dans le dossier choisi et qu’aucun doublon ne subsiste.
+6. Refaire l’essai vers un dossier `DCIM` ou `Pictures` de la carte SD, puis dans
+   le sens inverse.
+7. Vérifier que les répertoires privés `Android/media` ne sont jamais proposés
+   comme destination et que `Movies` n’est proposé que pour une sélection
+   composée uniquement de vidéos.
+8. Refuser l’autorisation Android et vérifier que ni la source ni la destination
+   n’ont changé.

@@ -55,7 +55,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Button
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.FilledTonalButton
@@ -72,7 +71,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,6 +89,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.polleg.gallery.R
@@ -97,6 +100,7 @@ import com.polleg.gallery.gallery.domain.GalleryLocation
 import com.polleg.gallery.gallery.domain.MediaFolder
 import com.polleg.gallery.gallery.domain.MediaItem
 import com.polleg.gallery.gallery.domain.MediaKind
+import com.polleg.gallery.gallery.domain.MediaMovePolicy
 import com.polleg.gallery.gallery.domain.StorageAvailability
 import com.polleg.gallery.gallery.domain.StorageKind
 import com.polleg.gallery.gallery.domain.findFolder
@@ -852,8 +856,6 @@ private fun GalleryToolbar(
     )
 
     if (state.selectedMediaUris.isNotEmpty()) {
-        val selected = state.media.filter { it.contentUri in state.selectedMediaUris }
-        val canMove = selected.map(MediaItem::volumeName).distinct().size == 1
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -871,19 +873,7 @@ private fun GalleryToolbar(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
-            if (!canMove) {
-                Text(
-                    text = stringResource(R.string.move_different_volumes),
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    maxLines = 2,
-                )
-            }
-            IconButton(
-                onClick = { onAction(GalleryAction.MoveSelected) },
-                enabled = canMove,
-            ) {
+            IconButton(onClick = { onAction(GalleryAction.MoveSelected) }) {
                 Icon(Icons.AutoMirrored.Filled.DriveFileMove, stringResource(R.string.move))
             }
             IconButton(onClick = { onAction(GalleryAction.DeleteSelected) }) {
@@ -1024,58 +1014,268 @@ private fun MoveDestinationDialog(
     state: GalleryUiState.Ready,
     onAction: (GalleryAction) -> Unit,
 ) {
-    val selectedVolume = state.media
-        .firstOrNull { it.contentUri in state.selectedMediaUris }
-        ?.volumeName
-    val currentFolder = (state.location as? GalleryLocation.Folder)?.id
-    val destinations = remember(state.folderRoots, selectedVolume, currentFolder) {
-        state.folderRoots
-            .flatMap(::allFolders)
-            .filter { folder ->
-                folder.id.volumeName == selectedVolume &&
-                    !folder.isStorageRoot &&
-                    folder.id.relativePath.isNotBlank() &&
-                    folder.id != currentFolder
-            }
-            .distinctBy { it.id }
-            .sortedBy { it.id.relativePath.lowercase() }
+    val selectedMedia = remember(state.media, state.selectedMediaUris) {
+        state.media.filter { it.contentUri in state.selectedMediaUris }
     }
+    val storageRoots = remember(state.folderRoots, state.storageVolumes, selectedMedia) {
+        state.storageVolumes.map { volume ->
+            state.folderRoots.firstOrNull { it.id.volumeName == volume.mediaStoreName }
+                ?: MediaFolder(
+                    id = FolderId.of(volume.mediaStoreName, ""),
+                    name = volume.displayName,
+                    directMediaCount = 0,
+                    totalMediaCount = 0,
+                    children = emptyList(),
+                    storage = volume,
+                )
+        }
+            .distinctBy { it.id }
+            .map { root -> root.withDefaultMoveDestinations(selectedMedia) }
+    }
+    var folderPath by remember(state.isMovePickerVisible) {
+        mutableStateOf(emptyList<MediaFolder>())
+    }
+    val currentFolder = folderPath.lastOrNull()
+    val children = remember(currentFolder, storageRoots, selectedMedia) {
+        if (currentFolder == null) {
+            storageRoots
+        } else {
+            currentFolder.children.filter { folder ->
+                MediaMovePolicy.containsCompatibleDestination(folder, selectedMedia)
+            }
+        }
+    }
+    val canChooseCurrent = currentFolder != null &&
+        MediaMovePolicy.canMoveTo(selectedMedia, currentFolder.id) &&
+        selectedMedia.any { media ->
+            media.volumeName != currentFolder.id.volumeName ||
+                media.relativePath != currentFolder.id.relativePath
+        }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = { onAction(GalleryAction.MovePickerDismissed) },
-        title = { Text(stringResource(R.string.choose_destination)) },
-        text = {
-            if (destinations.isEmpty()) {
-                Text(stringResource(R.string.no_move_destination))
-            } else {
-                LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                    items(destinations, key = { it.id.stableKey }) { folder ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onAction(GalleryAction.MoveDestinationSelected(folder.id))
-                                }
-                                .padding(vertical = 12.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(Icons.Default.Folder, contentDescription = null)
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                text = folder.id.relativePath.trimEnd('/'),
-                                style = MaterialTheme.typography.bodyMedium,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .windowInsetsPadding(WindowInsets.navigationBars),
+            color = MaterialTheme.colorScheme.background,
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(72.dp)
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(
+                        onClick = {
+                            if (folderPath.isEmpty()) {
+                                onAction(GalleryAction.MovePickerDismissed)
+                            } else {
+                                folderPath = folderPath.dropLast(1)
+                            }
+                        },
+                    ) {
+                        Icon(
+                            imageVector = if (folderPath.isEmpty()) {
+                                Icons.Default.Close
+                            } else {
+                                Icons.AutoMirrored.Filled.ArrowBack
+                            },
+                            contentDescription = stringResource(
+                                if (folderPath.isEmpty()) R.string.cancel else R.string.back,
+                            ),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp),
+                    ) {
+                        Text(
+                            text = currentFolder?.name
+                                ?: stringResource(R.string.storage_locations),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = if (currentFolder == null) {
+                                pluralStringResource(
+                                    R.plurals.selected_count,
+                                    selectedMedia.size,
+                                    selectedMedia.size,
+                                )
+                            } else {
+                                currentFolder.id.relativePath
+                                    .trimEnd('/')
+                                    .ifBlank { currentFolder.name }
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                HorizontalDivider()
+
+                if (children.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.no_move_destination),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                    ) {
+                        items(children, key = { it.id.stableKey }) { folder ->
+                            val isStorageAvailable =
+                                folder.storage?.availability != StorageAvailability.Unavailable
+                            val hasCompatibleFolder =
+                                MediaMovePolicy.containsCompatibleDestination(
+                                    folder,
+                                    selectedMedia,
+                                )
+                            val enabled = isStorageAvailable && hasCompatibleFolder
+                            MoveDestinationRow(
+                                folder = folder,
+                                enabled = enabled,
+                                unavailableReason = when {
+                                    !isStorageAvailable ->
+                                        stringResource(R.string.storage_unavailable)
+                                    !hasCompatibleFolder ->
+                                        stringResource(R.string.no_compatible_folder)
+                                    else -> null
+                                },
+                                onClick = { folderPath = folderPath + folder },
                             )
                         }
                     }
                 }
+
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(
+                        onClick = { onAction(GalleryAction.MovePickerDismissed) },
+                    ) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                    Button(
+                        enabled = canChooseCurrent,
+                        onClick = {
+                            currentFolder?.let { folder ->
+                                onAction(GalleryAction.MoveDestinationSelected(folder.id))
+                            }
+                        },
+                    ) {
+                        Text(stringResource(R.string.move_here))
+                    }
+                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { onAction(GalleryAction.MovePickerDismissed) }) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-    )
+        }
+    }
+}
+
+@Composable
+private fun MoveDestinationRow(
+    folder: MediaFolder,
+    enabled: Boolean,
+    unavailableReason: String?,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = if (folder.storage?.kind == StorageKind.SdCard) {
+                Icons.Default.SdStorage
+            } else {
+                Icons.Default.Folder
+            },
+            contentDescription = null,
+            tint = if (enabled) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+            },
+        )
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = folder.name,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                },
+            )
+            Text(
+                text = unavailableReason
+                    ?: pluralStringResource(
+                        R.plurals.media_count,
+                        folder.totalMediaCount,
+                        folder.totalMediaCount,
+                    ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private fun MediaFolder.withDefaultMoveDestinations(
+    media: List<MediaItem>,
+): MediaFolder {
+    if (!isStorageRoot || storage?.availability == StorageAvailability.Unavailable) return this
+
+    val existingNames = children.map { it.name.lowercase() }.toSet()
+    val defaults = MediaMovePolicy.defaultTopLevelDirectories(media)
+        .filterNot { it.lowercase() in existingNames }
+        .map { name ->
+            MediaFolder(
+                id = id.child(name),
+                name = name,
+                directMediaCount = 0,
+                totalMediaCount = 0,
+                children = emptyList(),
+                storage = null,
+            )
+        }
+    return copy(children = (children + defaults).sortedBy { it.name.lowercase() })
 }
 
 @Composable
@@ -1156,9 +1356,6 @@ private fun visibleFolderRows(
     }
     roots.forEach { append(it, 0) }
 }
-
-private fun allFolders(root: MediaFolder): List<MediaFolder> =
-    listOf(root) + root.children.flatMap(::allFolders)
 
 private fun FolderId.fallbackLabel(): String =
     relativePath

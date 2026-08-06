@@ -33,24 +33,26 @@ class MediaMutationCommandsTest {
     }
 
     @Test
-    fun `move rejects a selection spanning phone and sd card`() = runTest {
+    fun `move accepts a destination on another storage volume`() = runTest {
         val repository = RecordingMutationRepository()
         val handler = MoveMediaHandler(repository)
 
-        val failure = runCatching {
-            handler.handle(
-                MoveMediaCommand(
-                    media = listOf(media("external_primary", 1), media("1234-ABCD", 2)),
-                    destination = FolderId.of("external_primary", "Pictures/"),
-                ),
-            )
-        }.exceptionOrNull()
-        assertTrue(failure is InvalidMoveException)
-        assertEquals(emptyList<Pair<String, String>>(), repository.moves)
+        val result = handler.handle(
+            MoveMediaCommand(
+                media = listOf(media("external_primary", 1)),
+                destination = FolderId.of("1234-ABCD", "Pictures/"),
+            ),
+        )
+
+        assertEquals(1, result.movedCount)
+        assertEquals(
+            listOf("content://media/external_primary/1" to "Pictures/"),
+            repository.moves,
+        )
     }
 
     @Test
-    fun `move never invokes a copy operation`() = runTest {
+    fun `move port exposes a management operation and no copy command`() = runTest {
         val repository: MediaMutationRepository = RecordingMutationRepository()
 
         MoveMediaHandler(repository).handle(
@@ -60,8 +62,8 @@ class MediaMutationCommandsTest {
             ),
         )
 
-        // MediaMutationRepository intentionally exposes update and delete only:
-        // a stream-based copy cannot be requested by the command.
+        // Any volume transfer is an implementation detail of the move transaction.
+        // The application layer still exposes only move and delete operations.
         assertEquals(1, (repository as RecordingMutationRepository).moves.size)
     }
 
@@ -79,6 +81,23 @@ class MediaMutationCommandsTest {
         assertEquals(MoveMediaResult(movedCount = 1, failedCount = 1), result)
     }
 
+    @Test
+    fun `move rejects a destination that MediaStore cannot use for images`() = runTest {
+        val repository = RecordingMutationRepository()
+
+        val failure = runCatching {
+            MoveMediaHandler(repository).handle(
+                MoveMediaCommand(
+                    media = listOf(media("external_primary", 1)),
+                    destination = FolderId.of("external_primary", "Android/media/com.whatsapp/"),
+                ),
+            )
+        }.exceptionOrNull()
+
+        assertTrue(failure is InvalidMoveException)
+        assertTrue(repository.moves.isEmpty())
+    }
+
     private class RecordingMutationRepository(
         private val failingUris: Set<String> = emptySet(),
     ) : MediaMutationRepository {
@@ -86,9 +105,9 @@ class MediaMutationCommandsTest {
 
         override suspend fun delete(contentUri: String): Boolean = true
 
-        override suspend fun move(contentUri: String, destinationRelativePath: String): Boolean {
-            moves += contentUri to destinationRelativePath
-            return contentUri !in failingUris
+        override suspend fun move(media: MediaItem, destination: FolderId): Boolean {
+            moves += media.contentUri to destination.relativePath
+            return media.contentUri !in failingUris
         }
     }
 

@@ -18,6 +18,7 @@ import com.polleg.gallery.gallery.application.MoveMediaResult
 import com.polleg.gallery.gallery.application.MaxMediaMutationSize
 import com.polleg.gallery.gallery.domain.FolderId
 import com.polleg.gallery.gallery.domain.MediaItem
+import com.polleg.gallery.gallery.domain.MediaMovePolicy
 import kotlinx.coroutines.launch
 
 sealed interface MediaMutationOutcome {
@@ -57,6 +58,7 @@ class MediaMutationLauncher(
             val index: Int,
             val moved: Int,
             val failed: Int,
+            val failureDetails: List<String>,
         ) : Pending
     }
 
@@ -115,12 +117,11 @@ class MediaMutationLauncher(
         val uniqueMedia = media.distinctBy(MediaItem::contentUri)
         if (
             uniqueMedia.size > MaxMediaMutationSize ||
-            destination.relativePath.isBlank() ||
-            uniqueMedia.any { it.volumeName != destination.volumeName }
+            !MediaMovePolicy.canMoveTo(uniqueMedia, destination)
         ) {
             onOutcome(
                 MediaMutationOutcome.Failed(
-                    "Le déplacement doit rester dans un dossier du même stockage.",
+                    "Ce dossier n’accepte pas tous les types de médias sélectionnés.",
                 ),
             )
             return
@@ -134,7 +135,14 @@ class MediaMutationLauncher(
             confirmationLauncher.launch(IntentSenderRequest.Builder(request.intentSender).build())
         } else {
             processAndroid10Move(
-                Pending.Android10Move(uniqueMedia, destination, 0, 0, 0),
+                Pending.Android10Move(
+                    media = uniqueMedia,
+                    destination = destination,
+                    index = 0,
+                    moved = 0,
+                    failed = 0,
+                    failureDetails = emptyList(),
+                ),
             )
         }
     }
@@ -145,7 +153,7 @@ class MediaMutationLauncher(
                 moveMedia.handle(MoveMediaCommand(operation.media, operation.destination))
             }.onSuccess {
                 pending = null
-                onOutcome(MediaMutationOutcome.Moved(it))
+                reportMoveResult(it)
             }.onFailure {
                 pending = null
                 onOutcome(MediaMutationOutcome.Failed(it.message))
@@ -187,6 +195,7 @@ class MediaMutationLauncher(
             var index = operation.index
             var moved = operation.moved
             var failed = operation.failed
+            val failureDetails = operation.failureDetails.toMutableList()
             try {
                 while (index < operation.media.size) {
                     val item = operation.media[index]
@@ -195,10 +204,17 @@ class MediaMutationLauncher(
                     )
                     moved += result.movedCount
                     failed += result.failedCount
+                    failureDetails += result.failureDetails
                     index += 1
                 }
                 pending = null
-                onOutcome(MediaMutationOutcome.Moved(MoveMediaResult(moved, failed)))
+                reportMoveResult(
+                    MoveMediaResult(
+                        movedCount = moved,
+                        failedCount = failed,
+                        failureDetails = failureDetails,
+                    ),
+                )
             } catch (security: RecoverableSecurityException) {
                 pending = Pending.Android10Move(
                     operation.media,
@@ -206,6 +222,7 @@ class MediaMutationLauncher(
                     index,
                     moved,
                     failed,
+                    failureDetails,
                 )
                 confirmationLauncher.launch(
                     IntentSenderRequest.Builder(
@@ -216,6 +233,19 @@ class MediaMutationLauncher(
                 pending = null
                 onOutcome(MediaMutationOutcome.Failed(error.message))
             }
+        }
+    }
+
+    private fun reportMoveResult(result: MoveMediaResult) {
+        if (result.movedCount == 0 && result.failedCount > 0) {
+            onOutcome(
+                MediaMutationOutcome.Failed(
+                    result.failureDetails.firstOrNull()
+                        ?: "MediaStore n’a déplacé aucun média.",
+                ),
+            )
+        } else {
+            onOutcome(MediaMutationOutcome.Moved(result))
         }
     }
 }

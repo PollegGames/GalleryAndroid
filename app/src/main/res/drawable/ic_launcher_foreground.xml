@@ -4,20 +4,43 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Keep the artwork inside the adaptive-icon safe circle used by round launchers. -->
+
     <group
         android:pivotX="54"
         android:pivotY="54"
-        android:scaleX="0.84"
-        android:scaleY="0.84">
+        android:scaleX="0.88"
+        android:scaleY="0.88">
+
         <path
-            android:fillColor="#FFF8F1"
-            android:pathData="M27,29h54a8,8 0,0 1,8 8v42a8,8 0,0 1,-8 8h-54a8,8 0,0 1,-8 -8v-42a8,8 0,0 1,8 -8z" />
+            android:fillColor="#E8C99F"
+            android:pathData="M29,28h47a7,7 0,0 1,7 7v42a7,7 0,0 1,-7 7h-47a7,7 0,0 1,-7 -7v-42a7,7 0,0 1,7 -7z"
+            android:rotation="-7"
+            android:pivotX="54"
+            android:pivotY="54" />
+
         <path
-            android:fillColor="#335C67"
-            android:pathData="M26,75l14,-15 10,10 11,-14 21,24H26z" />
+            android:fillColor="#74869A"
+            android:pathData="M33,25h47a7,7 0,0 1,7 7v42a7,7 0,0 1,-7 7h-47a7,7 0,0 1,-7 -7v-42a7,7 0,0 1,7 -7z"
+            android:rotation="6"
+            android:pivotX="54"
+            android:pivotY="54" />
+
         <path
-            android:fillColor="#E09F3E"
-            android:pathData="M68,41a8,8 0,1 1,0 16a8,8 0,0 1,0 -16z" />
+            android:fillColor="#FFF9F1"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2.5"
+            android:pathData="M25,27h54a8,8 0,0 1,8 8v44a8,8 0,0 1,-8 8h-54a8,8 0,0 1,-8 -8v-44a8,8 0,0 1,8 -8z" />
+
+        <path
+            android:fillColor="#F2BD78"
+            android:pathData="M39,40a7,7 0,1 1,0 14a7,7 0,0 1,0 -14z" />
+
+        <path
+            android:fillColor="#A8B6C5"
+            android:pathData="M46,77l18,-20 19,20z" />
+
+        <path
+            android:fillColor="#435368"
+            android:pathData="M20,79l21,-23 25,23z" />
     </group>
 </vector>

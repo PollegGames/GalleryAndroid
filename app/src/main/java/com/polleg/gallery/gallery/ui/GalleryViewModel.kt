@@ -251,15 +251,9 @@ class GalleryViewModel(
     private fun showMovePicker() {
         val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
         val selected = ready.media.filter { it.contentUri in ready.selectedMediaUris }
-        if (selected.map(MediaItem::volumeName).distinct().size != 1) {
-            effectChannel.trySend(
-                GalleryEffect.ShowMessage(
-                    "Le déplacement exige des médias situés sur le même stockage.",
-                ),
-            )
-            return
+        if (selected.isNotEmpty()) {
+            mutableUiState.value = ready.copy(isMovePickerVisible = true)
         }
-        mutableUiState.value = ready.copy(isMovePickerVisible = true)
     }
 
     private fun dismissMovePicker() {
