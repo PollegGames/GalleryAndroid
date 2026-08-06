@@ -12,3 +12,5 @@ Corrections visées :
 - masquage automatique pendant la lecture vidéo ;
 - actions Partager, Déplacer et Supprimer depuis le lecteur ;
 - identification visible de la build `1.1.2-test`.
+
+La compilation automatique exécute les tests unitaires, le lint et l’assemblage de l’APK de débogage.
