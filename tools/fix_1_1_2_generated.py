@@ -31,6 +31,17 @@ replace_text(
     "onShareMedia = { mediaShareLauncher.share(it) },",
 )
 
+replace_text(
+    "app/src/main/java/com/polleg/gallery/ViewerActivity.kt",
+    "import androidx.compose.material.icons.filled.Forward15",
+    "import androidx.compose.material.icons.filled.FastForward",
+)
+replace_text(
+    "app/src/main/java/com/polleg/gallery/ViewerActivity.kt",
+    "Icons.Default.Forward15",
+    "Icons.Default.FastForward",
+)
+
 replace_regex(
     "app/src/main/java/com/polleg/gallery/ViewerActivity.kt",
     r"is MediaMutationOutcome\.Deleted,\s*is MediaMutationOutcome\.Moved,\s*->\s*\{\s*setResult\(Activity\.RESULT_OK\)\s*finish\(\)\s*\}",
