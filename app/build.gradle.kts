@@ -26,8 +26,8 @@ android {
         applicationId = "com.polleg.gallery"
         minSdk = 29
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.1.3-test"
+        versionCode = 6
+        versionName = "1.1.3-test2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
