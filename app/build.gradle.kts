@@ -7,6 +7,17 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+val galleryKeystorePath = providers.environmentVariable("GALLERY_KEYSTORE_PATH").orNull
+val galleryKeystorePassword = providers.environmentVariable("GALLERY_KEYSTORE_PASSWORD").orNull
+val galleryKeyAlias = providers.environmentVariable("GALLERY_KEY_ALIAS").orNull
+val galleryKeyPassword = providers.environmentVariable("GALLERY_KEY_PASSWORD").orNull
+val hasGallerySigning = listOf(
+    galleryKeystorePath,
+    galleryKeystorePassword,
+    galleryKeyAlias,
+    galleryKeyPassword,
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.polleg.gallery"
     compileSdk = 36
@@ -15,16 +26,32 @@ android {
         applicationId = "com.polleg.gallery"
         minSdk = 29
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.1.1"
+        versionCode = 5
+        versionName = "1.1.3-test"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasGallerySigning) {
+            create("gallery") {
+                storeFile = file(requireNotNull(galleryKeystorePath))
+                storePassword = requireNotNull(galleryKeystorePassword)
+                keyAlias = requireNotNull(galleryKeyAlias)
+                keyPassword = requireNotNull(galleryKeyPassword)
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.findByName("gallery")
+                ?: signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.findByName("gallery")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

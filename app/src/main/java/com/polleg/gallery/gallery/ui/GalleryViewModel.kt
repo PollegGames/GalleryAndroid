@@ -97,6 +97,7 @@ class GalleryViewModel(
             is GalleryAction.MediaSelected -> onMediaSelected(action.mediaItem)
             is GalleryAction.MediaLongPressed -> onMediaLongPressed(action.mediaItem)
             GalleryAction.SelectionClosed -> clearSelection()
+            GalleryAction.ShareSelected -> requestShare()
             GalleryAction.DeleteSelected -> requestDelete()
             GalleryAction.MoveSelected -> showMovePicker()
             GalleryAction.MovePickerDismissed -> dismissMovePicker()
@@ -209,7 +210,15 @@ class GalleryViewModel(
         }
         val result = GallerySelection.onClick(ready.selectedMediaUris, mediaItem.contentUri)
         if (result.openMedia) {
-            effectChannel.trySend(GalleryEffect.OpenMedia(mediaItem))
+            val media = ready.media.distinctBy(MediaItem::contentUri)
+            val startIndex = media.indexOfFirst { it.contentUri == mediaItem.contentUri }
+                .coerceAtLeast(0)
+            effectChannel.trySend(
+                GalleryEffect.OpenMedia(
+                    media = media,
+                    startIndex = startIndex,
+                ),
+            )
         } else {
             mutableUiState.value = ready.copy(selectedMediaUris = result.selectedUris)
         }
@@ -240,6 +249,12 @@ class GalleryViewModel(
             selectedMediaUris = emptySet(),
             isMovePickerVisible = false,
         )
+    }
+
+    private fun requestShare() {
+        val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
+        val selected = ready.media.filter { it.contentUri in ready.selectedMediaUris }
+        if (selected.isNotEmpty()) effectChannel.trySend(GalleryEffect.RequestShare(selected))
     }
 
     private fun requestDelete() {

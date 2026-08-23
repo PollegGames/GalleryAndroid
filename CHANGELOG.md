@@ -1,5 +1,23 @@
 # Historique des versions
 
+## 1.1.3-test
+
+- sources 1.1.2 intégrées définitivement sans scripts de génération pendant le build ;
+- workflows génériques de test et de release, sans modification automatique des sources ;
+- signature permanente commune aux APK de test et release ;
+- zoom photo 1× à 5×, pan borné et double toucher 1×/2,5× ;
+- priorité au pan lorsque l’image est zoomée et au pager lorsqu’elle est à 1× ;
+- prise en charge de `ACTION_VIEW image/*` avec affichage direct des URI `content://` ;
+- partage conservé pour les images externes et actions Move/Delete désactivées si non sûres.
+
+## 1.1.2
+
+- partage simple et multiple ;
+- lecteur interne pour images et vidéos ;
+- commandes vidéo avec masquage automatique ;
+- actions Partager, Déplacer et Supprimer dans le lecteur ;
+- nouvelle icône de l’application.
+
 ## 1.1.1
 
 - explorateur de destination plein écran, organisé par stockage puis par dossier ;

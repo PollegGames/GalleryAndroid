@@ -26,9 +26,11 @@
     <string name="image_description">Image %1$s</string>
     <string name="video_description">Vidéo %1$s</string>
     <string name="open_failed">Aucune application ne peut ouvrir ce média.</string>
+    <string name="external_image">Image</string>
     <string name="generic_error">Impossible de charger la galerie.</string>
     <string name="close_selection">Fermer la sélection</string>
     <string name="selected_media">Média sélectionné</string>
+    <string name="share">Partager</string>
     <string name="move">Déplacer</string>
     <string name="delete">Supprimer</string>
     <string name="storage_locations">Choisir le stockage</string>

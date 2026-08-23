@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SdStorage
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -873,6 +874,9 @@ private fun GalleryToolbar(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
+            IconButton(onClick = { onAction(GalleryAction.ShareSelected) }) {
+                Icon(Icons.Default.Share, stringResource(R.string.share))
+            }
             IconButton(onClick = { onAction(GalleryAction.MoveSelected) }) {
                 Icon(Icons.AutoMirrored.Filled.DriveFileMove, stringResource(R.string.move))
             }

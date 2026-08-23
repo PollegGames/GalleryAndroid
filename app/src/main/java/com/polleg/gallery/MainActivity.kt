@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import com.polleg.gallery.gallery.platform.MediaPermissionGateway
+import com.polleg.gallery.gallery.platform.MediaShareLauncher
 import com.polleg.gallery.gallery.platform.NativeMediaOpener
 import com.polleg.gallery.gallery.platform.MediaMutationLauncher
 import com.polleg.gallery.gallery.platform.MediaMutationOutcome
@@ -18,6 +19,7 @@ import com.polleg.gallery.gallery.ui.theme.GalleryTheme
 class MainActivity : ComponentActivity() {
     private val permissionGateway by lazy { MediaPermissionGateway(this) }
     private val mediaOpener by lazy { NativeMediaOpener(this) }
+    private val mediaShareLauncher by lazy { MediaShareLauncher(this) }
     private val galleryViewModel: GalleryViewModel by viewModels {
         GalleryViewModel.factory((application as GalleryApplication).container)
     }
@@ -50,6 +52,7 @@ class MainActivity : ComponentActivity() {
                         permissionLauncher.launch(permissionGateway.permissionsToRequest())
                     },
                     onOpenMedia = mediaOpener::open,
+                    onShareMedia = { mediaShareLauncher.share(it) },
                     onDeleteMedia = mediaMutationLauncher::delete,
                     onMoveMedia = mediaMutationLauncher::move,
                 )
