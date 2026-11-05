@@ -57,6 +57,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay5
 import androidx.compose.material.icons.filled.SdStorage
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.VolumeOff
@@ -158,6 +159,7 @@ class ViewerActivity : ComponentActivity() {
                         )
                     },
                     onClose = ::finish,
+                    onEdit = { item -> startActivity(EditorActivity.intent(this, item)) },
                     onShare = { item ->
                         if (!shareLauncher.share(listOf(item))) {
                             Toast.makeText(this, R.string.open_failed, Toast.LENGTH_SHORT).show()
@@ -407,6 +409,7 @@ private fun ViewerScreen(
     startIndex: Int,
     loadFolderTree: suspend () -> FolderTreeResult,
     onClose: () -> Unit,
+    onEdit: (MediaItem) -> Unit,
     onShare: (MediaItem) -> Unit,
     onMove: (MediaItem, FolderId) -> Unit,
     onDelete: (MediaItem) -> Unit,
@@ -573,6 +576,12 @@ private fun ViewerScreen(
                         .height(88.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    ViewerAction(
+                        icon = Icons.Default.Edit,
+                        label = "Modifier",
+                        onClick = { onEdit(currentItem.item) },
+                        modifier = Modifier.weight(1f),
+                    )
                     ViewerAction(
                         icon = Icons.Default.Share,
                         label = stringResource(R.string.share),

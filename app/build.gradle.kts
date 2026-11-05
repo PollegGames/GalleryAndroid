@@ -26,8 +26,8 @@ android {
         applicationId = "com.polleg.gallery"
         minSdk = 29
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.1.3-test2"
+        versionCode = 7
+        versionName = "1.1.4-test"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -105,6 +105,9 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+
+    implementation("androidx.media3:media3-transformer:1.11.1")
+    implementation("androidx.media3:media3-effect:1.11.1")
 
     implementation("io.coil-kt.coil3:coil-compose:3.4.0")
     implementation("io.coil-kt.coil3:coil-video:3.4.0")

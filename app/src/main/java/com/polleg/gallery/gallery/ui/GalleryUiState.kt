@@ -32,6 +32,7 @@ sealed interface GalleryUiState {
         val scrollPosition: ScrollPosition,
         val selectedMediaUris: Set<String> = emptySet(),
         val isMovePickerVisible: Boolean = false,
+        val paginationFailed: Boolean = false,
     ) : GalleryUiState
 
     data class Failure(

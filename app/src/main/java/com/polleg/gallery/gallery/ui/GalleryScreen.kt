@@ -766,6 +766,18 @@ private fun GalleryContent(
         onAction = onAction,
     )
 
+    LaunchedEffect(gridState, state.location, state.media.size, state.hasMore,
+        state.isRefreshing, state.paginationFailed) {
+        if (state.hasMore && !state.isRefreshing && !state.paginationFailed) {
+            snapshotFlow {
+                val last = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+                last >= 0 && last >= state.media.size - 6
+            }.distinctUntilChanged().collect { nearEnd ->
+                if (nearEnd) onAction(GalleryAction.LoadMoreRequested)
+            }
+        }
+    }
+
     Column(modifier.fillMaxHeight()) {
         GalleryToolbar(state, onAction)
 
@@ -827,12 +839,14 @@ private fun GalleryContent(
                             .padding(vertical = 16.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        FilledTonalButton(
-                            onClick = { onAction(GalleryAction.LoadMoreRequested) },
-                            enabled = !state.isRefreshing,
-                        ) {
-                            Text(stringResource(R.string.load_more))
+                        if (state.paginationFailed && !state.isRefreshing) {
+                            TextButton(onClick = { onAction(GalleryAction.LoadMoreRequested) }) {
+                                Text(stringResource(R.string.retry))
+                            }
+                        } else if (state.isRefreshing) {
+                            CircularProgressIndicator(Modifier.size(28.dp))
                         }
+
                     }
                 }
             }

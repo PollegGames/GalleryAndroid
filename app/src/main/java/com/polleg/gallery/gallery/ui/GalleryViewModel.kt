@@ -312,14 +312,13 @@ class GalleryViewModel(
         val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
         if (!ready.hasMore || ready.isRefreshing) return
 
-        val desiredCount = (ready.desiredCount + AdditionalMediaCount)
-            .coerceAtMost(MaximumRestoredMediaCount)
+        val desiredCount = ready.media.size + AdditionalMediaCount
         savedStateHandle[DesiredCountKey] = desiredCount
         mutableUiState.value = ready.copy(
             desiredCount = desiredCount,
             isRefreshing = true,
         )
-        loadGallery(showStarting = false, preserveScroll = true, rebuildFolders = false)
+        loadGallery(showStarting = false, preserveScroll = true, rebuildFolders = false, append = true)
     }
 
     private fun toggleFolderExpansion(folderId: FolderId) {
@@ -374,6 +373,7 @@ class GalleryViewModel(
         showStarting: Boolean,
         preserveScroll: Boolean,
         rebuildFolders: Boolean,
+        append: Boolean = false,
     ) {
         if (!permissionStatus.hasAccess) return
 
@@ -409,7 +409,7 @@ class GalleryViewModel(
                     page.await() to volumes.await()
                 }
 
-                val scrollPosition = resolvedScrollPosition(
+                val scrollPosition = if (append) currentScrollPosition else resolvedScrollPosition(
                     page = result.first,
                     previous = previousReady,
                     preserveScroll = preserveScroll,
@@ -450,7 +450,7 @@ class GalleryViewModel(
                 if (previousReady == null) {
                     mutableUiState.value = GalleryUiState.Failure(error.message)
                 } else {
-                    mutableUiState.value = previousReady.copy(isRefreshing = false)
+                    mutableUiState.value = previousReady.copy(isRefreshing = false, paginationFailed = append)
                     effectChannel.trySend(GalleryEffect.ShowError(error.message))
                 }
             }
@@ -591,7 +591,7 @@ class GalleryViewModel(
     }
 
     companion object {
-        private const val InitialMediaCount = 10
+        private const val InitialMediaCount = 50
         private const val AdditionalMediaCount = 50
         private const val MaximumRestoredMediaCount = 5_000
         private const val MaxHistoryEntries = 50

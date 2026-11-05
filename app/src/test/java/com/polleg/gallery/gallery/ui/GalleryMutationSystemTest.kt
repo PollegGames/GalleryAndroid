@@ -58,18 +58,7 @@ class GalleryMutationSystemTest {
     fun `long press delete approval clears selection and refreshes media and folders`() = runTest {
         val mediaRepository = CountingMediaRepository()
         val preferences = FakePreferencesRepository()
-        val viewModel = GalleryViewModel(
-            savedStateHandle = SavedStateHandle(),
-            getMediaPage = GetMediaPageHandler(mediaRepository),
-            getFolderTree = GetFolderTreeHandler(mediaRepository, FolderTreeBuilder()),
-            getStorageVolumes = GetStorageVolumesHandler(mediaRepository),
-            observePreferences = ObserveGalleryPreferencesHandler(preferences),
-            togglePinnedFolder = TogglePinnedFolderHandler(preferences),
-            setNavigationCollapsed = SetNavigationCollapsedHandler(preferences),
-            galleryChangeSource = object : GalleryChangeSource {
-                override val events: Flow<GalleryEvent> = emptyFlow()
-            },
-        )
+        val viewModel = createViewModel(mediaRepository, preferences)
 
         viewModel.onAction(
             GalleryAction.PermissionStatusChanged(
@@ -94,10 +83,69 @@ class GalleryMutationSystemTest {
         assertTrue(mediaRepository.folderLoads >= 2)
     }
 
+
+    private fun createViewModel(mediaRepository: CountingMediaRepository, preferences: FakePreferencesRepository = FakePreferencesRepository()): GalleryViewModel {
+        return GalleryViewModel(
+            savedStateHandle = SavedStateHandle(),
+            getMediaPage = GetMediaPageHandler(mediaRepository),
+            getFolderTree = GetFolderTreeHandler(mediaRepository, FolderTreeBuilder()),
+            getStorageVolumes = GetStorageVolumesHandler(mediaRepository),
+            observePreferences = ObserveGalleryPreferencesHandler(preferences),
+            togglePinnedFolder = TogglePinnedFolderHandler(preferences),
+            setNavigationCollapsed = SetNavigationCollapsedHandler(preferences),
+            galleryChangeSource = object : GalleryChangeSource {
+                override val events: Flow<GalleryEvent> = emptyFlow()
+            },
+        )
+    }
+
+    @Test
+    fun `starts with fifty then appends fifty without moving viewport and stops at end`() = runTest {
+        val repository = CountingMediaRepository(totalCount = 125)
+        val viewModel = createViewModel(repository)
+        viewModel.onAction(GalleryAction.PermissionStatusChanged(MediaPermissionStatus(true, false)))
+        advanceUntilIdle()
+        assertEquals(50, ready(viewModel).media.size)
+        val generation = ready(viewModel).scrollPosition.restorationGeneration
+        viewModel.onAction(GalleryAction.ScrollPositionChanged(40, 12, ready(viewModel).media[40].contentUri))
+        viewModel.onAction(GalleryAction.LoadMoreRequested)
+        advanceUntilIdle()
+        assertEquals(100, ready(viewModel).media.size)
+        assertEquals(40, ready(viewModel).scrollPosition.itemIndex)
+        assertEquals(generation, ready(viewModel).scrollPosition.restorationGeneration)
+        viewModel.onAction(GalleryAction.LoadMoreRequested)
+        advanceUntilIdle()
+        assertEquals(125, ready(viewModel).media.size)
+        assertTrue(!ready(viewModel).hasMore)
+        val loads = repository.mediaLoads
+        viewModel.onAction(GalleryAction.LoadMoreRequested)
+        advanceUntilIdle()
+        assertEquals(loads, repository.mediaLoads)
+        assertEquals(125, ready(viewModel).media.map { it.contentUri }.distinct().size)
+    }
+
+    @Test
+    fun `failed next page keeps images and retry loads only next fifty`() = runTest {
+        val repository = CountingMediaRepository(totalCount = 125)
+        val viewModel = createViewModel(repository)
+        viewModel.onAction(GalleryAction.PermissionStatusChanged(MediaPermissionStatus(true, false)))
+        advanceUntilIdle()
+        repository.failNext = true
+        viewModel.onAction(GalleryAction.LoadMoreRequested)
+        advanceUntilIdle()
+        assertEquals(50, ready(viewModel).media.size)
+        assertTrue(ready(viewModel).paginationFailed)
+        viewModel.onAction(GalleryAction.LoadMoreRequested)
+        advanceUntilIdle()
+        assertEquals(100, ready(viewModel).media.size)
+        assertTrue(!ready(viewModel).paginationFailed)
+    }
+
     private fun ready(viewModel: GalleryViewModel) =
         viewModel.uiState.value as GalleryUiState.Ready
 
-    private class CountingMediaRepository : MediaRepository {
+    private class CountingMediaRepository(val totalCount: Int = 1) : MediaRepository {
+        var failNext = false
         var mediaLoads = 0
         var folderLoads = 0
         private val item = MediaItem(
@@ -120,7 +168,10 @@ class GalleryMutationSystemTest {
             desiredCount: Int,
         ): MediaPage {
             mediaLoads += 1
-            return MediaPage(listOf(item), hasMore = false)
+            if (failNext) { failNext = false; error("Unavailable") }
+            return MediaPage((1..minOf(totalCount, desiredCount)).map { index ->
+                item.copy(id = index.toString(), contentUri = "content://media/external_primary/$index", mediaStoreId = index.toLong())
+            }, hasMore = totalCount > desiredCount)
         }
 
         override suspend fun getFolderPathRecords(): List<FolderPathRecord> {
