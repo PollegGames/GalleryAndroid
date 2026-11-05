@@ -33,6 +33,8 @@ Room, ni service en arrière-plan.
 
 ## Installer ou mettre à jour l’APK
 
+**[Télécharger Galerie 1.1.4 (APK)](https://github.com/PollegGames/GalleryAndroid/releases/download/v1.1.4/Galerie-1.1.4.apk)**
+
 Télécharger la dernière version depuis la page
 [`Releases`](https://github.com/PollegGames/GalleryAndroid/releases/latest).
 
@@ -142,7 +144,7 @@ Commandes de validation du projet :
 Les scénarios qui nécessitent du matériel réel sont détaillés dans
 [`docs/PLAN_DE_TEST_APPAREIL.md`](docs/PLAN_DE_TEST_APPAREIL.md).
 
-## Retouche (1.1.4-test)
+## Retouche (1.1.4)
 
 Ouvrir une photo ou une vidéo, puis toucher **Modifier** dans la barre du lecteur.
 

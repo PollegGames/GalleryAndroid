@@ -1,4 +1,4 @@
-## 1.1.4-test
+## 1.1.4
 
 - 50 médias au départ et chargement automatique à proximité du bas de la grille.
 - Position conservée pendant le chargement, arrêt en fin de liste et bouton Réessayer uniquement en cas d’erreur.
