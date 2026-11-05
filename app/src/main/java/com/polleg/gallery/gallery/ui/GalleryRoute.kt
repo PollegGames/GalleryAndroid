@@ -25,7 +25,8 @@ import com.polleg.gallery.gallery.domain.MediaItem
 fun GalleryRoute(
     viewModel: GalleryViewModel,
     onRequestPermissions: () -> Unit,
-    onOpenMedia: (MediaItem) -> Boolean,
+    onOpenMedia: (List<MediaItem>, Int) -> Boolean,
+    onShareMedia: (List<MediaItem>) -> Unit,
     onDeleteMedia: (List<MediaItem>) -> Unit,
     onMoveMedia: (List<MediaItem>, FolderId) -> Unit,
 ) {
@@ -40,10 +41,11 @@ fun GalleryRoute(
             when (effect) {
                 GalleryEffect.RequestMediaPermission -> onRequestPermissions()
                 is GalleryEffect.OpenMedia -> {
-                    if (!onOpenMedia(effect.mediaItem)) {
+                    if (!onOpenMedia(effect.media, effect.startIndex)) {
                         viewModel.onAction(GalleryAction.MediaOpenFailed)
                     }
                 }
+                is GalleryEffect.RequestShare -> onShareMedia(effect.media)
                 is GalleryEffect.RequestDelete -> onDeleteMedia(effect.media)
                 is GalleryEffect.RequestMove -> onMoveMedia(effect.media, effect.destination)
                 is GalleryEffect.ShowMessage ->

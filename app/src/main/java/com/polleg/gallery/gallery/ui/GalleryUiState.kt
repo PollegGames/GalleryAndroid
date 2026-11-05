@@ -32,6 +32,7 @@ sealed interface GalleryUiState {
         val scrollPosition: ScrollPosition,
         val selectedMediaUris: Set<String> = emptySet(),
         val isMovePickerVisible: Boolean = false,
+        val paginationFailed: Boolean = false,
     ) : GalleryUiState
 
     data class Failure(
@@ -51,6 +52,7 @@ sealed interface GalleryAction {
     data class MediaSelected(val mediaItem: MediaItem) : GalleryAction
     data class MediaLongPressed(val mediaItem: MediaItem) : GalleryAction
     data object SelectionClosed : GalleryAction
+    data object ShareSelected : GalleryAction
     data object DeleteSelected : GalleryAction
     data object MoveSelected : GalleryAction
     data object MovePickerDismissed : GalleryAction
@@ -73,7 +75,11 @@ sealed interface GalleryAction {
 
 sealed interface GalleryEffect {
     data object RequestMediaPermission : GalleryEffect
-    data class OpenMedia(val mediaItem: MediaItem) : GalleryEffect
+    data class OpenMedia(
+        val media: List<MediaItem>,
+        val startIndex: Int,
+    ) : GalleryEffect
+    data class RequestShare(val media: List<MediaItem>) : GalleryEffect
     data class RequestDelete(val media: List<MediaItem>) : GalleryEffect
     data class RequestMove(
         val media: List<MediaItem>,

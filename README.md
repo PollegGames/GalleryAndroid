@@ -5,7 +5,7 @@ vidéos de MediaStore, sur le téléphone comme sur les cartes SD.
 
 ## Fonctionnalités
 
-- 10 médias les plus récents au premier affichage, puis chargement par lots de 50 ;
+- 50 médias les plus récents au premier affichage, puis chargement automatique par lots de 50 à l’approche du bas ;
 - tri par la date la plus récente entre la prise de vue et l’ajout, avec la date de
   modification utilisée uniquement en dernier recours ;
 - images et vidéos réunies dans une grille, avec durée et aperçu des vidéos ;
@@ -13,7 +13,11 @@ vidéos de MediaStore, sur le téléphone comme sur les cartes SD.
 - distinction entre stockage interne et cartes SD, y compris une carte devenue
   indisponible ;
 - dossiers épinglés et bandeau repliable avec monogrammes persistants ;
-- ouverture dans le lecteur Android natif ;
+- lecteur interne d’images et vidéos avec swipe horizontal ;
+- zoom photo de 1× à 5×, déplacement borné et double toucher à 2,5× ;
+- ouverture des images reçues par `ACTION_VIEW image/*` depuis Fichiers,
+  Téléchargements ou une autre application ;
+- partage simple et multiple avec aperçu fourni via `ClipData` ;
 - restauration du dossier, de l’historique, du nombre d’éléments et de la position ;
 - actualisation au retour dans l’application et observation de MediaStore/du
   montage des volumes uniquement quand l’écran est actif ;
@@ -27,22 +31,29 @@ vidéos de MediaStore, sur le téléphone comme sur les cartes SD.
 L’application n’utilise ni `MANAGE_EXTERNAL_STORAGE`, ni chemin physique, ni base
 Room, ni service en arrière-plan.
 
-## Installer l’APK
+## Installer ou mettre à jour l’APK
+
+**[Télécharger Galerie 1.1.4 (APK)](https://github.com/PollegGames/GalleryAndroid/releases/download/v1.1.4/Galerie-1.1.4.apk)**
 
 Télécharger la dernière version depuis la page
 [`Releases`](https://github.com/PollegGames/GalleryAndroid/releases/latest).
 
-L’APK de test 1.1.1 est signé avec une clé Android de développement. Si la
-version déjà installée utilise une autre signature — notamment la démo 1.0.0 —
-Android demande de la désinstaller avant l’installation :
+Les versions officielles de test et release à partir de `1.1.3-test` utilisent
+la même clé permanente. Leur `applicationId` reste `com.polleg.gallery` et leur
+`versionCode` augmente à chaque APK : Android affiche donc **Mettre à jour**.
 
-```bash
-adb uninstall com.polleg.gallery
-adb install Galerie-1.1.1-test.apk
-```
+Les anciens APK 1.1.0 à 1.1.2 utilisaient des clés de développement. La première
+installation de `1.1.3-test` peut demander une dernière désinstallation. Les
+données locales de Galerie seront alors réinitialisées. Après cette migration,
+il ne faut plus désinstaller l’application pour les versions suivantes.
 
-L’APK fourni convient aux tests et à une installation manuelle, mais pas à une
-publication sur Google Play.
+Pour une version de test : ouvrir l’exécution correspondante dans GitHub
+Actions, télécharger l’artifact `Galerie-x.x.x-test`, puis ouvrir l’APK sur le
+téléphone. Pour une version finale, utiliser uniquement la page Releases.
+
+La procédure durable, les empreintes de certificat et la récupération de la clé
+sont documentées dans
+[`docs/MISES_A_JOUR_ET_SIGNATURE.md`](docs/MISES_A_JOUR_ET_SIGNATURE.md).
 
 ## Ouvrir et compiler le projet
 
@@ -52,11 +63,11 @@ Pré-requis :
 - JDK 17 ;
 - Android SDK Platform 36.
 
-Le projet est volontairement composé d’une seule activité et d’un seul module
-Gradle `app`.
+Le projet contient un seul module Gradle `app`. `MainActivity` affiche la
+galerie et `ViewerActivity` affiche un média interne ou une URI externe.
 
 ```bash
-./gradlew testDebugUnitTest lintDebug assembleDebug
+./gradlew testDebugUnitTest lint assembleDebug
 ```
 
 L’APK de débogage généré se trouve ensuite dans :
@@ -65,7 +76,12 @@ L’APK de débogage généré se trouve ensuite dans :
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Installation avec ADB :
+Une compilation locale sans variables de signature utilise la clé debug locale
+et ne doit pas être distribuée comme mise à jour officielle. Les workflows
+GitHub reconstruisent la clé permanente depuis les secrets et signent aussi bien
+les APK de test que les releases.
+
+Installation locale avec ADB, uniquement pour le développement :
 
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
@@ -81,6 +97,7 @@ la chaîne Gradle correspondante seront stables.
 ```text
 com.polleg.gallery/
 ├── MainActivity.kt
+├── ViewerActivity.kt
 ├── GalleryApplication.kt
 ├── AppContainer.kt
 └── gallery/
@@ -115,16 +132,33 @@ Les tests unitaires couvrent notamment :
 - les destinations autorisées selon le type de média ;
 - le déplacement direct, la sortie de `Android/media` et le passage téléphone/carte SD ;
 - les résultats partiels et les erreurs MediaStore détaillées.
+- les limites du zoom et le filtrage des intents externes.
 
 Commandes de validation du projet :
 
 ```text
-testDebugUnitTest
-assembleDebug
-assembleRelease
-lintDebug
-lintVitalRelease
+./gradlew testDebugUnitTest lint assembleDebug
+./gradlew testDebugUnitTest lint assembleRelease
 ```
 
 Les scénarios qui nécessitent du matériel réel sont détaillés dans
 [`docs/PLAN_DE_TEST_APPAREIL.md`](docs/PLAN_DE_TEST_APPAREIL.md).
+
+## Retouche (1.1.4)
+
+Ouvrir une photo ou une vidéo, puis toucher **Modifier** dans la barre du lecteur.
+
+- Photos : rotation, miroir, recadrage (original, carré, 4:3, 3:4, 16:9, 9:16),
+  zoom et déplacement du cadrage, luminosité, contraste, saturation, filtres
+  naturel/noir et blanc/chaud/froid/sépia, comparaison avec l’original et réinitialisation.
+- Vidéos : choix du début et de la fin, lecture de l’extrait, rotation et retrait du son.
+- **Enregistrer une copie** conserve toujours le média original. Les copies sont dans
+  `Pictures/Galerie` (JPEG ou PNG transparent) et `Movies/Galerie` (MP4 H.264/AAC).
+- Photos exportées jusqu’à 4096 pixels sur le plus grand côté, avec une limite
+  adaptée à la mémoire du téléphone. Les images animées sont exportées en image fixe.
+  Les métadonnées EXIF (notamment GPS et date originale) ne sont pas recopiées.
+- Les réglages et l’export survivent à la rotation de l’appareil. Rester dans
+  l’éditeur pendant l’export vidéo ; une erreur de codec ou d’espace libre est affichée.
+
+L’export vidéo utilise [Media3 Transformer](https://developer.android.com/media/media3/transformer/getting-started).
+La validation sur téléphone des formats, codecs et aperçus reste nécessaire.

@@ -96,15 +96,22 @@ class MediaMutationLauncher(
             return
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val uniqueUris = media.distinctBy(MediaItem::contentUri).map {
-                it.contentUri.toUri()
+            try {
+                val uniqueUris = media.distinctBy(MediaItem::contentUri).map {
+                    it.contentUri.toUri()
+                }
+                pending = Pending.DeleteRequest(uniqueUris.size)
+                val request = MediaStore.createDeleteRequest(
+                    activity.contentResolver,
+                    uniqueUris,
+                )
+                confirmationLauncher.launch(
+                    IntentSenderRequest.Builder(request.intentSender).build(),
+                )
+            } catch (error: RuntimeException) {
+                pending = null
+                onOutcome(MediaMutationOutcome.Failed(error.message))
             }
-            pending = Pending.DeleteRequest(uniqueUris.size)
-            val request = MediaStore.createDeleteRequest(
-                activity.contentResolver,
-                uniqueUris,
-            )
-            confirmationLauncher.launch(IntentSenderRequest.Builder(request.intentSender).build())
         } else {
             processAndroid10Delete(
                 Pending.Android10Delete(media.distinctBy(MediaItem::contentUri), 0, 0, 0),
@@ -127,12 +134,19 @@ class MediaMutationLauncher(
             return
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            pending = Pending.MoveRequest(uniqueMedia, destination)
-            val request = MediaStore.createWriteRequest(
-                activity.contentResolver,
-                uniqueMedia.map { it.contentUri.toUri() },
-            )
-            confirmationLauncher.launch(IntentSenderRequest.Builder(request.intentSender).build())
+            try {
+                pending = Pending.MoveRequest(uniqueMedia, destination)
+                val request = MediaStore.createWriteRequest(
+                    activity.contentResolver,
+                    uniqueMedia.map { it.contentUri.toUri() },
+                )
+                confirmationLauncher.launch(
+                    IntentSenderRequest.Builder(request.intentSender).build(),
+                )
+            } catch (error: RuntimeException) {
+                pending = null
+                onOutcome(MediaMutationOutcome.Failed(error.message))
+            }
         } else {
             processAndroid10Move(
                 Pending.Android10Move(

@@ -97,6 +97,7 @@ class GalleryViewModel(
             is GalleryAction.MediaSelected -> onMediaSelected(action.mediaItem)
             is GalleryAction.MediaLongPressed -> onMediaLongPressed(action.mediaItem)
             GalleryAction.SelectionClosed -> clearSelection()
+            GalleryAction.ShareSelected -> requestShare()
             GalleryAction.DeleteSelected -> requestDelete()
             GalleryAction.MoveSelected -> showMovePicker()
             GalleryAction.MovePickerDismissed -> dismissMovePicker()
@@ -209,7 +210,15 @@ class GalleryViewModel(
         }
         val result = GallerySelection.onClick(ready.selectedMediaUris, mediaItem.contentUri)
         if (result.openMedia) {
-            effectChannel.trySend(GalleryEffect.OpenMedia(mediaItem))
+            val media = ready.media.distinctBy(MediaItem::contentUri)
+            val startIndex = media.indexOfFirst { it.contentUri == mediaItem.contentUri }
+                .coerceAtLeast(0)
+            effectChannel.trySend(
+                GalleryEffect.OpenMedia(
+                    media = media,
+                    startIndex = startIndex,
+                ),
+            )
         } else {
             mutableUiState.value = ready.copy(selectedMediaUris = result.selectedUris)
         }
@@ -240,6 +249,12 @@ class GalleryViewModel(
             selectedMediaUris = emptySet(),
             isMovePickerVisible = false,
         )
+    }
+
+    private fun requestShare() {
+        val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
+        val selected = ready.media.filter { it.contentUri in ready.selectedMediaUris }
+        if (selected.isNotEmpty()) effectChannel.trySend(GalleryEffect.RequestShare(selected))
     }
 
     private fun requestDelete() {
@@ -297,14 +312,13 @@ class GalleryViewModel(
         val ready = mutableUiState.value as? GalleryUiState.Ready ?: return
         if (!ready.hasMore || ready.isRefreshing) return
 
-        val desiredCount = (ready.desiredCount + AdditionalMediaCount)
-            .coerceAtMost(MaximumRestoredMediaCount)
+        val desiredCount = ready.media.size + AdditionalMediaCount
         savedStateHandle[DesiredCountKey] = desiredCount
         mutableUiState.value = ready.copy(
             desiredCount = desiredCount,
             isRefreshing = true,
         )
-        loadGallery(showStarting = false, preserveScroll = true, rebuildFolders = false)
+        loadGallery(showStarting = false, preserveScroll = true, rebuildFolders = false, append = true)
     }
 
     private fun toggleFolderExpansion(folderId: FolderId) {
@@ -359,6 +373,7 @@ class GalleryViewModel(
         showStarting: Boolean,
         preserveScroll: Boolean,
         rebuildFolders: Boolean,
+        append: Boolean = false,
     ) {
         if (!permissionStatus.hasAccess) return
 
@@ -394,7 +409,7 @@ class GalleryViewModel(
                     page.await() to volumes.await()
                 }
 
-                val scrollPosition = resolvedScrollPosition(
+                val scrollPosition = if (append) currentScrollPosition else resolvedScrollPosition(
                     page = result.first,
                     previous = previousReady,
                     preserveScroll = preserveScroll,
@@ -403,24 +418,26 @@ class GalleryViewModel(
                 persistNavigation(location, history, desiredCount)
                 persistScrollPosition(scrollPosition)
 
+                // Selection and folder expansion may change while an automatic page is loading.
+                val latestReady = mutableUiState.value as? GalleryUiState.Ready
                 mutableUiState.value = GalleryUiState.Ready(
                     location = location,
                     history = history,
                     media = result.first.items,
                     desiredCount = desiredCount,
-                    folderRoots = previousReady?.folderRoots.orEmpty(),
+                    folderRoots = latestReady?.folderRoots.orEmpty(),
                     pinnedFolderKeys = preferences.pinnedFolderKeys,
                     navigationCollapsed = preferences.navigationCollapsed,
-                    expandedFolderKeys = previousReady?.expandedFolderKeys.orEmpty(),
+                    expandedFolderKeys = latestReady?.expandedFolderKeys.orEmpty(),
                     storageVolumes = result.second,
                     hasMore = result.first.hasMore,
                     isRefreshing = false,
-                    isFolderTreeLoading = previousReady?.folderRoots.isNullOrEmpty(),
+                    isFolderTreeLoading = latestReady?.isFolderTreeLoading ?: true,
                     isLimitedAccess = permissionStatus.isLimited,
                     scrollPosition = scrollPosition,
-                    selectedMediaUris = previousReady?.selectedMediaUris.orEmpty()
+                    selectedMediaUris = latestReady?.selectedMediaUris.orEmpty()
                         .intersect(result.first.items.mapTo(mutableSetOf(), MediaItem::contentUri)),
-                    isMovePickerVisible = previousReady?.isMovePickerVisible == true,
+                    isMovePickerVisible = latestReady?.isMovePickerVisible == true,
                 )
 
                 if (rebuildFolders || previousReady?.folderRoots.isNullOrEmpty()) {
@@ -435,7 +452,7 @@ class GalleryViewModel(
                 if (previousReady == null) {
                     mutableUiState.value = GalleryUiState.Failure(error.message)
                 } else {
-                    mutableUiState.value = previousReady.copy(isRefreshing = false)
+                    mutableUiState.value = previousReady.copy(isRefreshing = false, paginationFailed = append)
                     effectChannel.trySend(GalleryEffect.ShowError(error.message))
                 }
             }
@@ -576,7 +593,7 @@ class GalleryViewModel(
     }
 
     companion object {
-        private const val InitialMediaCount = 10
+        private const val InitialMediaCount = 50
         private const val AdditionalMediaCount = 50
         private const val MaximumRestoredMediaCount = 5_000
         private const val MaxHistoryEntries = 50
