@@ -23,6 +23,7 @@ import com.polleg.gallery.gallery.domain.StorageAvailability
 import com.polleg.gallery.gallery.domain.StorageKind
 import com.polleg.gallery.gallery.domain.StorageVolume
 import com.polleg.gallery.gallery.platform.MediaPermissionStatus
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -141,11 +142,30 @@ class GalleryMutationSystemTest {
         assertTrue(!ready(viewModel).paginationFailed)
     }
 
+    @Test
+    fun `duplicate load signals do not duplicate requests and selection survives append`() = runTest {
+        val repository = CountingMediaRepository(totalCount = 125)
+        val viewModel = createViewModel(repository)
+        viewModel.onAction(GalleryAction.PermissionStatusChanged(MediaPermissionStatus(true, false)))
+        advanceUntilIdle()
+        repository.gate = CompletableDeferred()
+        viewModel.onAction(GalleryAction.LoadMoreRequested)
+        viewModel.onAction(GalleryAction.LoadMoreRequested)
+        assertEquals(2, repository.mediaLoads)
+        val selected = ready(viewModel).media.first()
+        viewModel.onAction(GalleryAction.MediaLongPressed(selected))
+        repository.gate?.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(100, ready(viewModel).media.size)
+        assertEquals(setOf(selected.contentUri), ready(viewModel).selectedMediaUris)
+    }
+
     private fun ready(viewModel: GalleryViewModel) =
         viewModel.uiState.value as GalleryUiState.Ready
 
     private class CountingMediaRepository(val totalCount: Int = 1) : MediaRepository {
         var failNext = false
+        var gate: CompletableDeferred<Unit>? = null
         var mediaLoads = 0
         var folderLoads = 0
         private val item = MediaItem(
@@ -168,6 +188,7 @@ class GalleryMutationSystemTest {
             desiredCount: Int,
         ): MediaPage {
             mediaLoads += 1
+            gate?.await()
             if (failNext) { failNext = false; error("Unavailable") }
             return MediaPage((1..minOf(totalCount, desiredCount)).map { index ->
                 item.copy(id = index.toString(), contentUri = "content://media/external_primary/$index", mediaStoreId = index.toLong())

@@ -79,7 +79,10 @@ object MediaEditor {
     }
 
     suspend fun savePhoto(context: Context, uri: Uri, edits: PhotoEdits): Uri = withContext(Dispatchers.IO) {
-        val source = decode(context, uri, 4096)
+        // Reserve room for source, orientation, result and the live preview on small heaps.
+        val safeEdge = kotlin.math.sqrt(Runtime.getRuntime().maxMemory() / 4.0 / 12.0)
+            .toInt().coerceIn(1024, 4096)
+        val source = decode(context, uri, safeEdge)
         try {
             val output = render(source, edits)
             try {

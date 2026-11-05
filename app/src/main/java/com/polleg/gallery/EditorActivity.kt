@@ -46,6 +46,10 @@ class EditorActivity : ComponentActivity() {
             GalleryTheme {
                 val model: EditorViewModel = viewModel()
                 LaunchedEffect(uri) { model.load(uri, video) }
+                DisposableEffect(model.saving) {
+                    if (model.saving) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    onDispose { window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+                }
                 LaunchedEffect(model.savedUri) {
                     if (model.savedUri != null) {
                         Toast.makeText(this@EditorActivity, "Copie enregistrée dans ${if (video) "Movies" else "Pictures"}/Galerie", Toast.LENGTH_LONG).show()
@@ -170,7 +174,7 @@ private fun PhotoControls(model: EditorViewModel) {
     EditSlider("Luminosité", edits.brightness, -.5f.. .5f, enabled) { model.photo = edits.copy(brightness = it) }
     EditSlider("Contraste", edits.contrast, .5f..1.5f, enabled) { model.photo = edits.copy(contrast = it) }
     EditSlider("Saturation", edits.saturation, 0f..2f, enabled) { model.photo = edits.copy(saturation = it) }
-    Text("Copie dans Pictures/Galerie, jusqu’à 4096 pixels sur le côté le plus long. Les images animées deviennent une photo fixe. L’original est conservé.", style = MaterialTheme.typography.bodySmall)
+    Text("Copie dans Pictures/Galerie, jusqu’à 4096 pixels sur le côté le plus long selon la mémoire disponible. Les images animées deviennent une photo fixe. L’original est conservé.", style = MaterialTheme.typography.bodySmall)
 }
 
 @Composable

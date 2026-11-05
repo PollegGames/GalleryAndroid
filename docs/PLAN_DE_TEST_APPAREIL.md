@@ -124,3 +124,22 @@ physique d’une carte SD.
 4. Vérifier qu’Android affiche **Mettre à jour**, sans demander de désinstallation.
 5. Lancer Galerie et refaire les contrôles essentiels : permissions, récents,
    dossiers, carte SD, partage, déplacement, suppression et viewer.
+
+## 1.1.4 : défilement et édition
+
+- Bibliothèques de 0, 12, 50, 51 et 125 médias : vérifier 50 au départ au maximum,
+  le chargement automatique et l’arrêt au dernier média, sans doublon ni saut.
+- Défiler rapidement, changer de dossier pendant le chargement, revenir en arrière.
+  Simuler une indisponibilité du stockage : les médias restent affichés, Réessayer fonctionne.
+- Photo portrait avec orientation EXIF, paysage, panorama, PNG transparent, GIF :
+  comparer l’aperçu avec l’export pour rotation/miroir/cadrages/filtres/réglages.
+- Tester les cadrages aux quatre bords et le zoom maximal ; réinitialiser et comparer l’original.
+- Ouvrir la copie dans un autre lecteur ; vérifier dimensions, transparence et original intact.
+- Vidéos MP4 H.264, HEVC, portrait, avec/sans audio : couper hors image clé,
+  vérifier durée, première/dernière image, rotation et silence effectif de la copie.
+- Rotation de l’appareil pendant réglages et export ; passage en arrière-plan : l’aperçu s’arrête.
+- Annuler les modifications, export avec stockage presque plein et format non pris en charge :
+  vérifier message d’erreur et absence de copie partielle visible.
+- Vérifier le bouton Modifier sur écran étroit et avec grande taille de police.
+
+Ces tests appareil doivent être réalisés sur téléphone ; les tests unitaires ne valident pas les codecs matériels.

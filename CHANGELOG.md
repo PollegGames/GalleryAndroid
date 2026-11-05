@@ -1,3 +1,11 @@
+## 1.1.4-test
+
+- 50 médias au départ et chargement automatique à proximité du bas de la grille.
+- Position conservée pendant le chargement, arrêt en fin de liste et bouton Réessayer uniquement en cas d’erreur.
+- Éditeur photo intégré : recadrage, rotation, miroir, réglages et cinq styles couleur.
+- Éditeur vidéo intégré : découpage temporel, rotation et suppression du son.
+- Aperçu et export dans une nouvelle copie, sans modification des originaux.
+
 # Historique des versions
 
 ## 1.1.3-test

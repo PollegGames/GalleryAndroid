@@ -5,7 +5,7 @@ vidéos de MediaStore, sur le téléphone comme sur les cartes SD.
 
 ## Fonctionnalités
 
-- 10 médias les plus récents au premier affichage, puis chargement par lots de 50 ;
+- 50 médias les plus récents au premier affichage, puis chargement automatique par lots de 50 à l’approche du bas ;
 - tri par la date la plus récente entre la prise de vue et l’ajout, avec la date de
   modification utilisée uniquement en dernier recours ;
 - images et vidéos réunies dans une grille, avec durée et aperçu des vidéos ;
@@ -141,3 +141,22 @@ Commandes de validation du projet :
 
 Les scénarios qui nécessitent du matériel réel sont détaillés dans
 [`docs/PLAN_DE_TEST_APPAREIL.md`](docs/PLAN_DE_TEST_APPAREIL.md).
+
+## Retouche (1.1.4-test)
+
+Ouvrir une photo ou une vidéo, puis toucher **Modifier** dans la barre du lecteur.
+
+- Photos : rotation, miroir, recadrage (original, carré, 4:3, 3:4, 16:9, 9:16),
+  zoom et déplacement du cadrage, luminosité, contraste, saturation, filtres
+  naturel/noir et blanc/chaud/froid/sépia, comparaison avec l’original et réinitialisation.
+- Vidéos : choix du début et de la fin, lecture de l’extrait, rotation et retrait du son.
+- **Enregistrer une copie** conserve toujours le média original. Les copies sont dans
+  `Pictures/Galerie` (JPEG ou PNG transparent) et `Movies/Galerie` (MP4 H.264/AAC).
+- Photos exportées jusqu’à 4096 pixels sur le plus grand côté, avec une limite
+  adaptée à la mémoire du téléphone. Les images animées sont exportées en image fixe.
+  Les métadonnées EXIF (notamment GPS et date originale) ne sont pas recopiées.
+- Les réglages et l’export survivent à la rotation de l’appareil. Rester dans
+  l’éditeur pendant l’export vidéo ; une erreur de codec ou d’espace libre est affichée.
+
+L’export vidéo utilise [Media3 Transformer](https://developer.android.com/media/media3/transformer/getting-started).
+La validation sur téléphone des formats, codecs et aperçus reste nécessaire.

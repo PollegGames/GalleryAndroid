@@ -418,24 +418,26 @@ class GalleryViewModel(
                 persistNavigation(location, history, desiredCount)
                 persistScrollPosition(scrollPosition)
 
+                // Selection and folder expansion may change while an automatic page is loading.
+                val latestReady = mutableUiState.value as? GalleryUiState.Ready
                 mutableUiState.value = GalleryUiState.Ready(
                     location = location,
                     history = history,
                     media = result.first.items,
                     desiredCount = desiredCount,
-                    folderRoots = previousReady?.folderRoots.orEmpty(),
+                    folderRoots = latestReady?.folderRoots.orEmpty(),
                     pinnedFolderKeys = preferences.pinnedFolderKeys,
                     navigationCollapsed = preferences.navigationCollapsed,
-                    expandedFolderKeys = previousReady?.expandedFolderKeys.orEmpty(),
+                    expandedFolderKeys = latestReady?.expandedFolderKeys.orEmpty(),
                     storageVolumes = result.second,
                     hasMore = result.first.hasMore,
                     isRefreshing = false,
-                    isFolderTreeLoading = previousReady?.folderRoots.isNullOrEmpty(),
+                    isFolderTreeLoading = latestReady?.isFolderTreeLoading ?: true,
                     isLimitedAccess = permissionStatus.isLimited,
                     scrollPosition = scrollPosition,
-                    selectedMediaUris = previousReady?.selectedMediaUris.orEmpty()
+                    selectedMediaUris = latestReady?.selectedMediaUris.orEmpty()
                         .intersect(result.first.items.mapTo(mutableSetOf(), MediaItem::contentUri)),
-                    isMovePickerVisible = previousReady?.isMovePickerVisible == true,
+                    isMovePickerVisible = latestReady?.isMovePickerVisible == true,
                 )
 
                 if (rebuildFolders || previousReady?.folderRoots.isNullOrEmpty()) {
