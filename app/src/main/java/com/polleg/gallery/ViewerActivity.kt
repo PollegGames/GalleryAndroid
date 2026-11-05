@@ -119,6 +119,9 @@ import com.polleg.gallery.gallery.platform.MediaShareLauncher
 import com.polleg.gallery.gallery.ui.theme.GalleryTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.isActive
 
 class ViewerActivity : ComponentActivity() {
@@ -786,6 +789,18 @@ private fun VideoPage(
     var duration by remember(item.contentUri) { mutableLongStateOf(0L) }
     var position by remember(item.contentUri) { mutableLongStateOf(0L) }
     val currentPlayingCallback by rememberUpdatedState(onPlayingChanged)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, item.contentUri) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                videoView?.pause()
+                playing = false
+                currentPlayingCallback(false)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     DisposableEffect(item.contentUri) {
         onDispose {
